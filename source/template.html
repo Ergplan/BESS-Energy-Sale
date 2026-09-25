@@ -1,0 +1,1578 @@
+<meta charset="utf-8">
+<title>IEX BESS Arbitrage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F1F3F6; --card:#FFFFFF; --card-2:#F6F7F9; --ink:#0F1B2D; --muted:#5A6576; --faint:#8C96A5; --line:#E2E6EC;
+  --shadow:0 1px 2px rgba(15,27,45,.05),0 6px 20px rgba(15,27,45,.05);
+  --bess:#0B8870; --bess-soft:rgba(11,136,112,.12); --solar:#C98300; --solar-soft:rgba(217,142,4,.15);
+  --grid:#3F51C4; --grid-soft:rgba(63,81,196,.12); --bad:#C4382E; --bad-soft:rgba(196,56,46,.5); --warn:#A35D00;
+  --hero-bg:#0F1B2D; --hero-ink:#FFFFFF; --hero-muted:#A9B4C6; --hero-acc:#46D6B4;
+  --side-bg:#0F1B2D; --side-ink:#E9EEF5; --side-muted:#94A1B5; --side-line:#223350; --side-hi:#1A2A45; --side-acc:#46D6B4;
+  --iso-top:#DDE3DA; --iso-l:#C3CBBF; --iso-r:#AEB8AA; --iso-road:#EDF0EA; --iso-pad:#CDD2D6;
+  --panel:#233A63; --panel-sun:#739AE0; --cont-t:#F6F8F9; --cont-l:#D6DCE1; --cont-r:#BEC6CD;
+  --tx-t:#9BA5AE; --tx-l:#808A93; --tx-r:#6C757E; --wire:#56606B; --night:#0A1430; --hatch:rgba(15,27,45,.32);
+  --f-b:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-d:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-m:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0A0F17; --card:#111925; --card-2:#162030; --ink:#E6ECF4; --muted:#9AA6B8; --faint:#6B7789; --line:#233043;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  --bess:#33C7A4; --bess-soft:rgba(51,199,164,.14); --solar:#F2B33D; --solar-soft:rgba(242,179,61,.16);
+  --grid:#8E9CFF; --grid-soft:rgba(142,156,255,.15); --bad:#F2766B; --bad-soft:rgba(242,118,107,.55); --warn:#E6A24C;
+  --hero-bg:#16233A; --hero-ink:#FFFFFF; --hero-muted:#A9B4C6; --hero-acc:#46D6B4;
+  --side-bg:#070B12; --side-line:#1A2638; --side-hi:#121C2C;
+  --iso-top:#1C2833; --iso-l:#151F28; --iso-r:#10181F; --iso-road:#243140; --iso-pad:#2C3947;
+  --panel:#1B2E52; --panel-sun:#5B86D6; --cont-t:#C9D2DA; --cont-l:#9BA6B0; --cont-r:#808B95;
+  --tx-t:#6F7B86; --tx-l:#57626C; --tx-r:#47515A; --wire:#8C98A6; --night:#000611; --hatch:rgba(230,236,244,.34);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0A0F17; --card:#111925; --card-2:#162030; --ink:#E6ECF4; --muted:#9AA6B8; --faint:#6B7789; --line:#233043;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);
+  --bess:#33C7A4; --bess-soft:rgba(51,199,164,.14); --solar:#F2B33D; --solar-soft:rgba(242,179,61,.16);
+  --grid:#8E9CFF; --grid-soft:rgba(142,156,255,.15); --bad:#F2766B; --bad-soft:rgba(242,118,107,.55); --warn:#E6A24C;
+  --hero-bg:#16233A; --hero-ink:#FFFFFF; --hero-muted:#A9B4C6; --hero-acc:#46D6B4;
+  --side-bg:#070B12; --side-line:#1A2638; --side-hi:#121C2C;
+  --iso-top:#1C2833; --iso-l:#151F28; --iso-r:#10181F; --iso-road:#243140; --iso-pad:#2C3947;
+  --panel:#1B2E52; --panel-sun:#5B86D6; --cont-t:#C9D2DA; --cont-l:#9BA6B0; --cont-r:#808B95;
+  --tx-t:#6F7B86; --tx-l:#57626C; --tx-r:#47515A; --wire:#8C98A6; --night:#000611; --hatch:rgba(230,236,244,.34);
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-b);font-size:14px;line-height:1.45}
+*{box-sizing:border-box}
+.app{display:grid;grid-template-columns:272px minmax(0,1fr);min-height:100%}
+@media (max-width:960px){.app{grid-template-columns:1fr}}
+h1,h2,h3{margin:0;text-wrap:balance}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.num{font-family:var(--f-m);font-variant-numeric:tabular-nums}
+
+/* ---- sidebar ---- */
+.side{background:var(--side-bg);color:var(--side-ink);padding:22px 16px 28px;position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+@media (max-width:960px){.side{position:static;height:auto}}
+.brand{display:flex;gap:10px;align-items:center}
+.brand .mark{width:34px;height:34px;border-radius:9px;background:var(--side-hi);display:grid;place-items:center;border:1px solid var(--side-line)}
+.brand b{font-family:var(--f-d);font-size:17px;font-weight:700;display:block;line-height:1.1}
+.brand span{font-size:12px;color:var(--side-muted)}
+.side .lbl{color:var(--side-muted)}
+.tabs{display:flex;flex-direction:column;gap:8px}
+@media (max-width:960px){.tabs{flex-direction:row;flex-wrap:wrap}.tabs .tab{flex:1 1 180px}}
+.tab{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;border:1px solid var(--side-line);background:transparent;transition:background .15s,border-color .15s}
+.tab:hover{background:var(--side-hi)}
+.tab:focus-visible{outline:2px solid var(--side-acc);outline-offset:2px}
+.tab[aria-selected="true"]{background:var(--side-hi);border-color:var(--side-acc)}
+.tab .t1{display:flex;justify-content:space-between;align-items:baseline}
+.tab .code{font-family:var(--f-d);font-weight:700;font-size:19px}
+.tab .loc{font-size:12.5px;color:var(--side-muted)}
+.tab .conn{font-family:var(--f-d);font-size:24px;font-weight:600;line-height:1}
+.tab .conn small{font-size:12px;font-family:var(--f-b);font-weight:500;color:var(--side-muted);margin-left:4px}
+.tab .t3{font-size:12px;color:var(--side-muted);font-family:var(--f-m)}
+.keyin{padding:14px;border-radius:10px;background:var(--side-hi);border:1px solid var(--side-line);display:flex;flex-direction:column;gap:8px}
+.keyin label{font-size:12.5px;color:var(--side-muted)}
+.keyin .row{display:flex;align-items:center;gap:8px}
+.keyin input{flex:1;min-width:0;font:inherit;font-family:var(--f-d);font-size:22px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid var(--side-line);background:var(--side-bg);color:var(--side-ink)}
+.keyin input:focus{outline:2px solid var(--side-acc);outline-offset:0}
+.keyin .unit{color:var(--side-muted);font-weight:600}
+.keyin p{margin:0;font-size:12px;color:var(--side-muted);line-height:1.45}
+.side .foot{margin-top:auto;font-size:12px;color:var(--side-muted);line-height:1.5}
+
+/* ---- main ---- */
+main{padding-block:22px 48px;padding-inline:28px;display:flex;flex-direction:column;gap:18px;min-width:0}
+@media (max-width:960px){main{padding-inline:16px}}
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.head h1{font-family:var(--f-d);font-size:28px;font-weight:700;line-height:1.1}
+.head p{margin:4px 0 0;color:var(--muted)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap}
+.seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--card-2);border:1px solid var(--line);gap:2px}
+.seg button{all:unset;cursor:pointer;padding:6px 12px;border-radius:7px;font-weight:600;font-size:13px;color:var(--muted);white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(15,27,45,.12),0 0 0 1px var(--line)}
+.seg button:focus-visible{outline:2px solid var(--bess);outline-offset:1px}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:18px;min-width:0}
+.card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.card-h h2{font-size:15.5px;font-weight:600;margin-top:2px}
+.card-h p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+
+/* hero */
+.heroes{display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr 1fr;gap:14px}
+@media (max-width:1320px){.heroes{grid-template-columns:1fr 1fr 1fr}}
+@media (max-width:900px){.heroes{grid-template-columns:1fr 1fr}}
+@media (max-width:520px){.heroes{grid-template-columns:1fr}}
+.hero{display:flex;flex-direction:column;gap:6px;padding:18px 20px}
+.hero .v{font-family:var(--f-d);font-size:36px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.hero .v small{font-size:16px;font-weight:600;color:var(--muted);margin-left:4px}
+.hero .s{font-size:12.5px;color:var(--muted)}
+.hero.primary{background:var(--hero-bg);border-color:transparent;color:var(--hero-ink)}
+.hero.primary .lbl,.hero.primary .s{color:var(--hero-muted)}
+.hero.primary .v{font-size:48px;color:var(--hero-acc)}
+.hero.primary.neg .v{color:#FF8A80}
+.hero .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid currentColor}
+.pill.good{color:var(--bess)} .pill.bad{color:var(--bad)}
+.hero.primary .pill.good{color:var(--hero-acc)} .hero.primary .pill.bad{color:#FF8A80}
+.bar2{height:6px;border-radius:3px;background:var(--card-2);overflow:hidden;display:flex}
+.bar2 i{display:block;height:100%}
+.minis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+@media (max-width:1180px){.minis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:620px){.minis{grid-template-columns:1fr 1fr}}
+.mini{padding:14px 16px;display:flex;flex-direction:column;gap:3px}
+.mini .v{font-family:var(--f-d);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15}
+.mini .s{font-size:12px;color:var(--muted)}
+
+.two{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+.two.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media (max-width:1180px){.two,.two.even{grid-template-columns:1fr}}
+
+/* sizing chain */
+.chain{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;position:relative}
+@media (max-width:760px){.chain{grid-template-columns:1fr 1fr}}
+.step{background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px;position:relative;min-width:0}
+.step .v{font-family:var(--f-d);font-size:21px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.step .s{font-size:11.5px;color:var(--muted);line-height:1.35}
+.step.key{border-color:var(--ink)}
+.step.bs{border-color:var(--bess);background:var(--bess-soft)}
+.step.sl{border-color:var(--solar);background:var(--solar-soft)}
+.step.gr{border-color:var(--grid);background:var(--grid-soft)}
+@media (min-width:761px){.step + .step::before{content:"";position:absolute;left:-9px;top:50%;width:8px;height:8px;border-top:1.5px solid var(--faint);border-right:1.5px solid var(--faint);transform:translate(-2px,-50%) rotate(45deg)}}
+.chain-note{margin:12px 0 0;font-size:12.5px;color:var(--muted)}
+
+/* scenario matrix */
+.mx{width:100%;border-collapse:separate;border-spacing:6px}
+.mx th{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 4px}
+.mx th.rh{font-family:var(--f-d);font-size:15px;letter-spacing:0;text-transform:none;color:var(--ink)}
+.mx td{padding:0}
+.mx button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:2px;width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--card-2)}
+.mx button:hover{border-color:var(--faint)}
+.mx button:focus-visible{outline:2px solid var(--bess);outline-offset:2px}
+.mx button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+.mx .i{font-family:var(--f-d);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.mx .i.good{color:var(--bess)} .mx .i.bad{color:var(--bad)}
+.mx .c{font-size:11.5px;color:var(--muted);font-family:var(--f-m)}
+
+/* scene */
+.scene-card{padding:0;overflow:hidden}
+.scene-top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px 0;flex-wrap:wrap}
+.clock{display:flex;align-items:center;gap:10px}
+.clock .t{font-family:var(--f-m);font-size:19px;font-weight:500}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--card-2);color:var(--muted)}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ch-solar{color:var(--solar);border-color:var(--solar)} .chip.ch-grid{color:var(--grid);border-color:var(--grid)}
+.chip.dis{color:var(--bess);border-color:var(--bess)} .chip.exp{color:var(--solar)}
+.soc{display:flex;align-items:center;gap:8px;font-family:var(--f-m);font-size:12px;color:var(--muted)}
+.soc .bar{width:110px;height:10px;border-radius:5px;border:1px solid var(--line);overflow:hidden;background:var(--card-2)}
+.soc .fill{height:100%;background:var(--bess);width:0}
+.iconbtn{all:unset;cursor:pointer;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;background:var(--card)}
+.iconbtn:focus-visible{outline:2px solid var(--bess);outline-offset:2px}
+#scene{display:block;width:100%;height:auto;max-height:440px}
+#scene text{font-family:var(--f-d);font-size:13px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--card);stroke-width:3px;stroke-linejoin:round}
+#scene text.sub{font-family:var(--f-m);font-size:10.5px;font-weight:400;fill:var(--muted)}
+.gnd-t{fill:var(--iso-top)} .gnd-l{fill:var(--iso-l)} .gnd-r{fill:var(--iso-r)}
+.road{fill:var(--iso-road)} .pad{fill:var(--iso-pad)}
+.pv{fill:var(--panel);stroke:var(--card);stroke-width:.35;stroke-opacity:.35} .pv-sun{fill:var(--panel-sun)}
+.cont-t{fill:var(--cont-t)} .cont-l{fill:var(--cont-l)} .cont-r{fill:var(--cont-r)}
+.tx-t{fill:var(--tx-t)} .tx-l{fill:var(--tx-l)} .tx-r{fill:var(--tx-r)}
+.led{fill:var(--led,var(--faint));opacity:var(--led-o,.3)}
+.wire{stroke:var(--wire);stroke-width:1;fill:none}
+.cable{stroke:var(--line);stroke-width:3;fill:none;stroke-linecap:round}
+.flow{fill:none;stroke-width:3.2;stroke-linecap:round;stroke-dasharray:5 9;opacity:0;transition:opacity .25s}
+.flow.on{opacity:1;animation:dash .9s linear infinite} .flow.rev{animation-direction:reverse}
+@keyframes dash{to{stroke-dashoffset:-28}}
+@media (prefers-reduced-motion: reduce){.flow.on{animation:none}}
+.timeline{padding:4px 18px 16px}
+#tl{display:block;width:100%;height:34px;cursor:pointer;touch-action:pan-y}
+
+/* windows */
+.ctls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 28px;margin-bottom:6px}
+@media (max-width:1180px){.ctls{grid-template-columns:1fr 1fr}}
+#capSlider{accent-color:var(--ink)}
+.pc-wrap{position:relative}
+.irr-badge{position:absolute;left:52%;top:40px;transform:translateX(-50%);background:var(--hero-bg);color:var(--hero-ink);border-radius:10px;padding:10px 14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px;pointer-events:none;min-width:150px}
+.irr-badge .lbl{color:var(--hero-muted);font-size:10.5px}
+.irr-badge .v{font-family:var(--f-d);font-size:30px;font-weight:700;line-height:1;color:var(--hero-acc);font-variant-numeric:tabular-nums}
+.irr-badge .v.neg{color:#FF8A80}
+.irr-badge .s{font-size:11.5px;color:var(--hero-muted);font-family:var(--f-m)}
+.irr-badge .d{font-size:11.5px;font-weight:600;font-family:var(--f-m)}
+@media (max-width:620px){.irr-badge{position:static;transform:none;margin:8px 0 0;pointer-events:auto}}
+@media (max-width:700px){.ctls{grid-template-columns:1fr}}
+.sl{display:flex;flex-direction:column;gap:4px}
+.sl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sl .row b{font-size:13.5px;font-weight:600}
+.sl .row span{font-family:var(--f-m);font-size:13px;font-weight:500}
+.sl input[type=range]{width:100%;margin:6px 0 2px}
+.sl .avg{font-size:12px;color:var(--muted)}
+#cSlider{accent-color:var(--grid)} #a_solarSize{accent-color:var(--solar)} #dSlider{accent-color:var(--bess)}
+.mk{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mk select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.btn{all:unset;cursor:pointer;padding:7px 14px;border-radius:8px;background:var(--ink);color:var(--card);font-weight:600;font-size:13px}
+.btn:hover{opacity:.9} .btn:focus-visible{outline:2px solid var(--bess);outline-offset:2px}
+.warnline{color:var(--warn);font-size:13px;font-weight:500;margin:8px 0 0;min-height:1.2em}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:10px 0 4px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.legend i.box{height:10px;width:12px;border-radius:2px}
+.cw{width:100%;overflow:hidden}
+svg text{fill:var(--muted);font-family:var(--f-m);font-size:10.5px}
+.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.editbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 2px;padding:10px 12px;border-radius:10px;background:var(--card-2);border:1px solid var(--line)}
+.btn2{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:13px;color:var(--ink)}
+.btn2:hover{border-color:var(--faint)} .btn2:focus-visible{outline:2px solid var(--bess);outline-offset:2px}
+.btn2[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.btn2:disabled{opacity:.4;cursor:not-allowed}
+.seg.sm button{padding:4px 10px;font-size:12px}
+.editnote{font-size:12.5px;color:var(--muted);flex:1 1 260px}
+#priceChart .band{cursor:grab}
+#priceChart.editing{outline:1.5px dashed var(--line);outline-offset:4px;border-radius:6px}
+
+
+.zoomctl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.zoomctl .zh{font-size:12px;color:var(--muted);margin-right:4px}
+.zoomctl .iconbtn{font-size:16px;font-weight:600;color:var(--ink)}
+.btn2.sm{padding:4px 10px;font-size:12px}
+.scene-body{display:grid;grid-template-columns:184px minmax(0,1fr);align-items:center}
+@media (max-width:760px){.scene-body{grid-template-columns:1fr}.gauge{flex-direction:row;flex-wrap:wrap;align-items:flex-start}.zoomctl .zh{display:none}}
+.gauge{padding:10px 0 10px 18px;display:flex;flex-direction:column;gap:10px}
+.gwrap{position:relative;height:236px;width:156px}
+.gcap{position:absolute;left:20px;top:0;width:24px;height:6px;border-radius:3px 3px 0 0;background:var(--ink)}
+.gbar{position:absolute;left:0;top:6px;width:64px;height:230px;border:2px solid var(--ink);border-radius:9px;background:var(--card-2);overflow:hidden}
+.gfill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--bess);transition:background-color .3s}
+.res{position:absolute;left:0;right:0;background:repeating-linear-gradient(45deg,var(--hatch) 0 2px,transparent 2px 6px)}
+.res.top{top:0;border-bottom:1.5px dashed var(--ink)} .res.bot{bottom:0;border-top:1.5px dashed var(--ink)}
+.gl{position:absolute;left:72px;font-size:11px;color:var(--muted);white-space:nowrap;transform:translateY(-50%);font-family:var(--f-m)}
+.gl.now{font-family:var(--f-d);font-size:16px;font-weight:700;color:var(--ink)}
+.gstat{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);max-width:170px}
+.gstat b{font-family:var(--f-d);font-size:16px;color:var(--ink)}
+.gkey{display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-size:11px}
+.gkey i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.gkey i.hk{background:repeating-linear-gradient(45deg,var(--hatch) 0 2px,transparent 2px 5px);border:1px dashed var(--ink)}
+.gkey i + i,.gkey i:not(:first-child){margin-left:6px}
+.scene-wrap{position:relative;min-width:0}
+#scene{cursor:grab;touch-action:pan-y;user-select:none} #scene.panning{cursor:grabbing}
+#scene text.co-t{font-family:var(--f-d);font-size:12.5px;font-weight:600;fill:var(--ink);stroke:none}
+#scene text.co-v{font-family:var(--f-m);font-size:10.5px;font-weight:400;fill:var(--muted);stroke:none}
+.co-box{fill:var(--card);stroke:var(--line);stroke-width:1}
+.co-box.strong{stroke:var(--bess);stroke-width:1.5}
+.co-ln{stroke:var(--ink);stroke-width:.9;stroke-dasharray:3 3;fill:none;opacity:.55}
+.co-dot{fill:var(--ink)}
+.g-bg{fill:var(--tx-r);opacity:.6}
+.g-fill{fill:var(--gfill,var(--bess));opacity:var(--gfill-o,1)}
+.g-res{fill:url(#hatch);opacity:.85}
+.c-tint{fill:var(--led,transparent);opacity:var(--tint-o,0);transition:opacity .3s}
+.note-list{margin:0;padding-left:18px;display:grid;gap:8px;line-height:1.55;max-width:120ch}
+.note-list li::marker{color:var(--faint)}
+.note-list b{font-weight:600}
+
+.boost{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;margin:12px 0 0;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card-2)}
+.boost.on{border-color:var(--bess);background:var(--bess-soft)}
+.sw{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13.5px}
+.sw input{position:absolute;opacity:0;width:1px;height:1px}
+.sw .knob{width:36px;height:20px;border-radius:10px;background:var(--faint);position:relative;transition:background .2s;flex:none}
+.sw .knob::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--card);transition:transform .2s}
+.sw input:checked + .knob{background:var(--bess)} .sw input:checked + .knob::after{transform:translateX(16px)}
+.sw input:focus-visible + .knob{outline:2px solid var(--bess);outline-offset:2px}
+.bf{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.bf input{width:58px;font:inherit;font-family:var(--f-m);font-size:12.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);text-align:right}
+.bf input:focus{outline:2px solid var(--bess);outline-offset:0}
+.boost-out{flex:1 1 320px;font-size:12.5px;color:var(--muted)} .boost-out b{color:var(--ink)}
+
+.viewtabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:2px;overflow-x:auto}
+.viewtabs button{all:unset;cursor:pointer;padding:10px 14px;font-weight:600;font-size:13.5px;color:var(--muted);border-bottom:2.5px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.viewtabs button:hover{color:var(--ink)}
+.viewtabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--bess)}
+.viewtabs button:focus-visible{outline:2px solid var(--bess);outline-offset:-2px}
+.view:not([hidden]),#view2:not([hidden]){display:flex;flex-direction:column;gap:18px;min-width:0}
+.cmp{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:14px}
+@media (max-width:1100px){.cmp{grid-template-columns:1fr}}
+.ctls.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1180px){.ctls.four{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.ctls.four{grid-template-columns:1fr}}
+.eqbox{gap:10px}
+.eqbox.off{opacity:.8}
+.sw.side{color:var(--side-ink)}
+.sw.side .knob{background:var(--side-line)}
+.sw.side input:checked + .knob{background:var(--side-acc)}
+.sw.side input:focus-visible + .knob{outline-color:var(--side-acc)}
+.eqrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--side-muted)}
+.eqrow input{width:52px;font:inherit;font-family:var(--f-m);font-size:13px;padding:4px 6px;border-radius:6px;border:1px solid var(--side-line);background:var(--side-bg);color:var(--side-ink);text-align:right}
+.eqrow input:focus{outline:2px solid var(--side-acc);outline-offset:0}
+#eqOut b{color:var(--side-ink);font-weight:600}
+/* waterfall & table */
+.wf{display:grid;grid-template-columns:minmax(120px,185px) 1fr 92px;gap:7px 12px;align-items:center;font-size:13px}
+.wf .l{color:var(--muted)} .wf .l.strong{color:var(--ink);font-weight:600}
+.wf .track{position:relative;height:20px;background:var(--card-2);border-radius:3px}
+.wf .b{position:absolute;top:0;height:100%;border-radius:3px}
+.wf .val{font-family:var(--f-m);font-size:12.5px;text-align:right}
+.wf .b.total{background:var(--ink)} .wf .b.minus{background:var(--bad-soft)} .wf .b.sub{background:var(--bess);opacity:.5} .wf .b.final{background:var(--bess)}
+.wf-foot{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);display:grid;gap:5px}
+.wf-foot b{color:var(--ink);font-family:var(--f-m);font-weight:500}
+table.pl{width:100%;border-collapse:collapse;font-size:13px}
+.pl td,.pl th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:left}
+.pl th{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pl td.r,.pl th.r{text-align:right;font-family:var(--f-m);font-variant-numeric:tabular-nums}
+.pl tr.tot td{font-weight:700;border-bottom:1.5px solid var(--ink)}
+.pl tr.neg td.r{color:var(--bad)}
+.pl tr.subh td{color:var(--muted);font-size:11px;border-bottom:0;padding-top:14px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+
+/* assumptions */
+.assm{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+@media (max-width:1180px){.assm{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.assm{grid-template-columns:1fr}}
+.grp{background:var(--card-2);border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.grp h3{font-size:13px;font-weight:600}
+.field{display:grid;grid-template-columns:1fr 88px;align-items:center;gap:8px;font-size:12.5px}
+.field label{color:var(--muted)}
+.field input,.field select{width:100%;font:inherit;font-family:var(--f-m);font-size:12.5px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);text-align:right}
+.field select{text-align:left;font-family:var(--f-b)}
+.field input:focus,.field select:focus{outline:2px solid var(--bess);outline-offset:0}
+details.assm-d > summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.assm-d > summary::-webkit-details-marker{display:none}
+details.assm-d > summary .tg{font-size:12.5px;color:var(--muted)}
+details.assm-d[open] > summary{margin-bottom:14px}
+.notes{font-size:12.5px;color:var(--muted);line-height:1.6}
+.notes ul{margin:8px 0 0;padding-left:18px}
+.notes b{color:var(--ink);font-weight:600}
+</style>
+
+<div class="app" id="app">
+<aside class="side">
+  <div class="brand">
+    <div class="mark"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="3" y="4" width="11" height="11" rx="2" fill="none" stroke="#46D6B4" stroke-width="1.6"/><rect x="6.5" y="1.5" width="4" height="2.5" rx="1" fill="#46D6B4"/><path d="M9.8 6.5 L7 10 H9.2 L8.2 13 L11 9.4 H8.8 Z" fill="#46D6B4"/></svg></div>
+    <div><b>IEX BESS Arbitrage</b><span>Sized from CTU night connectivity</span></div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <span class="lbl">Name of solar plant</span>
+    <div class="tabs" role="tablist" id="plantTabs"></div>
+  </div>
+  <div class="keyin">
+    <label for="connInput">Night connectivity · key input</label>
+    <div class="row"><input id="connInput" type="number" min="10" step="10"><span class="unit">MW</span></div>
+    <p>The BESS is sized to export this MW for the whole discharge window. Solar is sized only to charge that BESS.</p>
+  </div>
+  <div class="keyin eqbox" id="eqBox">
+    <label class="sw side"><input type="checkbox" id="a_eqOn" checked><span class="knob" aria-hidden="true"></span><b>Equity-funded cost</b></label>
+    <div class="eqrow"><span>₹</span><input id="a_eqCost" type="number" step="1" min="0" value="20" aria-label="Equity-funded cost, ₹ Cr a year"><span>Cr a year, years 1 to</span><input id="a_eqYears" type="number" step="1" min="0" max="25" value="2" aria-label="Number of years"></div>
+    <p id="eqOut"></p>
+  </div>
+  <div class="foot" id="sideFoot"></div>
+</aside>
+
+<main>
+  <nav class="viewtabs" role="tablist" aria-label="Model views">
+    <button role="tab" data-v="1" aria-selected="true">Solar + BESS model</button>
+    <button role="tab" data-v="2" aria-selected="false">2 cycles a day · CATL 12,000 · IEX only</button>
+  </nav>
+  <div id="view1" class="view">
+  <div class="head">
+    <div><h1 id="title">P7 · Tumkur</h1><p id="subtitle"></p></div>
+    <div class="toolbar">
+      <div class="seg" id="durSeg" aria-label="BESS duration"><button data-v="2">2-hour</button><button data-v="4">4-hour</button></div>
+      <div class="seg" id="srcSeg" aria-label="Charging source"><button data-v="solar">Own solar</button><button data-v="grid">IEX purchase</button></div>
+      <div class="seg" id="txSeg" aria-label="Transmission for purchase"><button data-v="stoa">STOA</button><button data-v="lta">LTA</button></div>
+    </div>
+  </div>
+
+  <section class="heroes" id="heroes" aria-live="polite"></section>
+  <section class="minis" id="minis"></section>
+
+  <div class="two">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Sizing</span><h2>Built from night connectivity</h2></div></div>
+      <div class="chain" id="chain"></div>
+      <p class="chain-note" id="chainNote"></p>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Scenarios · post-tax IRR</span><h2>2-hour and 4-hour compared</h2></div><p id="mxNote"></p></div>
+      <table class="mx" id="mx"></table>
+    </section>
+  </div>
+
+  <section class="card" id="noteCard">
+    <div class="card-h"><div><span class="lbl">Output note</span><h2>What the numbers say</h2></div><p id="noteMeta"></p></div>
+    <ul class="note-list" id="noteList"></ul>
+  </section>
+
+  <section class="card scene-card">
+    <div class="scene-top">
+      <div class="clock">
+        <button class="iconbtn" id="playBtn" aria-label="Pause day animation"></button>
+        <span class="t" id="clockT">00:00</span>
+        <span class="chip" id="stateChip">Idle</span>
+      </div>
+      <div class="zoomctl">
+        <span class="zh">Scroll to zoom · drag to pan · double-click to zoom in</span>
+        <button class="iconbtn" id="zOut" aria-label="Zoom out">−</button>
+        <button class="iconbtn" id="zIn" aria-label="Zoom in">+</button>
+        <button class="btn2 sm" id="zFit" disabled>Fit</button>
+        <button class="btn2 sm" id="lossBtn" aria-pressed="true">Loss labels</button>
+      </div>
+    </div>
+    <div class="scene-body">
+      <div class="gauge">
+        <span class="lbl">BESS state of charge</span>
+        <div class="gwrap">
+          <div class="gcap"></div>
+          <div class="gbar"><div class="gfill" id="gFill"></div><div class="res top" id="gTop"></div><div class="res bot" id="gBot"></div></div>
+          <span class="gl" id="glTop"></span><span class="gl" id="glBot"></span><span class="gl now" id="glNow"></span>
+        </div>
+        <div class="gstat"><b id="gMWh"></b><span id="gUse"></span><span class="gkey"><i class="hk"></i>DoD reserve · never used</span>
+          <span class="gkey"><i style="background:var(--solar)"></i>Solar charge <i style="background:var(--grid)"></i>IEX charge <i style="background:var(--bess)"></i>Discharge</span></div>
+      </div>
+      <div class="scene-wrap"><svg id="scene" role="img" aria-label="Isometric view of the plant: solar arrays around a central battery yard, the CTU pooling substation and the grid line, with loss labels"></svg></div>
+    </div>
+    <div class="timeline"><svg id="tl" aria-label="24-hour timeline, click to scrub"></svg></div>
+  </section>
+
+  <section class="card">
+    <div class="card-h">
+      <div><span class="lbl">Operating windows</span><h2>Shift the windows and watch the IRR</h2></div>
+      <div class="mk">
+        <select id="buyMkt" aria-label="Buy from market"><option value="DAM">Buy · DAM</option><option value="GDAM">Buy · GDAM</option><option value="RTM">Buy · RTM</option></select>
+        <select id="sellMkt" aria-label="Sell on market"><option value="DAM">Sell · DAM</option><option value="GDAM">Sell · GDAM</option><option value="RTM">Sell · RTM</option></select>
+        <button class="btn" id="bestBtn">Find best windows</button>
+      </div>
+    </div>
+    <div class="ctls">
+      <div class="sl" id="chargeCtl">
+        <div class="row"><b>Charge window · IEX buy</b><span id="cTxt"></span></div>
+        <input type="range" id="cSlider" min="0" max="95" step="1" aria-label="Charge window start">
+        <span class="avg" id="cAvg"></span>
+      </div>
+      <div class="sl" id="solarCtl" hidden>
+        <div class="row"><b>Solar sizing · share of average-day charging need</b><span id="sTxt"></span></div>
+        <input type="range" id="a_solarSize" min="80" max="160" step="5" value="100" aria-label="Solar sizing">
+        <span class="avg" id="sAvg"></span>
+      </div>
+      <div class="sl">
+        <div class="row"><b>Discharge window · IEX sell</b><span id="dTxt"></span></div>
+        <input type="range" id="dSlider" min="0" max="95" step="1" aria-label="Discharge window start">
+        <span class="avg" id="dAvg"></span>
+      </div>
+      <div class="sl">
+        <div class="row"><b>BESS capex sensitivity</b><span id="capTxt"></span></div>
+        <input type="range" id="capSlider" min="0.4" max="1.6" step="0.01" aria-label="BESS capex, ₹ Cr per MWh">
+        <span class="avg" id="capAvg"></span>
+      </div>
+    </div>
+    <div class="boost" id="boostBar">
+      <label class="sw"><input type="checkbox" id="a_boostOn"><span class="knob" aria-hidden="true"></span><b>Booster days</b></label>
+      <div class="bf"><label for="a_boostDays">Days</label><input id="a_boostDays" type="number" min="1" max="30" step="1" value="20"></div>
+      <div class="bf"><label for="a_boostStart">From</label><input id="a_boostStart" type="number" min="1" max="30" step="1" value="1"><span>Sep</span></div>
+      <div class="bf"><label for="a_boostPrice">Sell price</label><input id="a_boostPrice" type="number" min="0" step="0.5" value="15"><span>₹/kWh</span></div>
+      <span class="boost-out" id="boostOut"></span>
+    </div>
+    <p class="warnline" id="warn"></p>
+    <div class="editbar">
+      <button class="btn2" id="unlockBtn" aria-pressed="false">Unlock prices</button>
+      <div class="seg sm" id="brushSeg" hidden aria-label="Brush width"><button data-v="2">1-h brush</button><button data-v="5" aria-pressed="true">3-h brush</button><button data-v="10">6-h brush</button></div>
+      <button class="btn2" id="resetPx" disabled>Reset prices</button>
+      <span class="editnote" id="editNote"></span>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="cw pc-wrap"><svg id="priceChart" style="touch-action:pan-y"></svg><div class="irr-badge" id="irrBadge" aria-live="polite"></div></div>
+    <p class="hint">Drag a shaded band or use the sliders to move a window. Unlock prices to drag the price line itself for a price sensitivity, and use Reset to restore actual IEX prices. For the sliders, each step is one 15-minute IEX block. The 2-hour and 4-hour cases keep separate windows. The charge window lengthens automatically so the battery fills within the connectivity MW.</p>
+  </section>
+
+  <div class="two even">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Energy waterfall · per cycle, year 1</span><h2>From BESS nameplate to energy sold</h2></div></div>
+      <div class="wf" id="wf"></div>
+      <div class="wf-foot" id="wfFoot"></div>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Year 1 · ₹ Cr</span><h2>Revenue and cost build-up</h2></div></div>
+      <table class="pl" id="pl"></table>
+    </section>
+  </div>
+
+  <div class="two even">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Seasonality · ₹ Cr</span><h2>Monthly BESS margin, year 1</h2></div><p id="monthNote"></p></div>
+      <div class="cw"><svg id="monthChart"></svg></div>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Cash flow · ₹ Cr</span><h2>Post-tax cash flow and cumulative position</h2></div><p id="cfNote"></p></div>
+      <div class="cw"><svg id="cfChart"></svg></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <details class="assm-d" open>
+      <summary><div><span class="lbl">Inputs</span><h2 style="font-size:15.5px;font-weight:600;margin-top:2px">Assumptions</h2></div><span class="tg">Show / hide</span></summary>
+      <div class="assm">
+        <div class="grp"><h3>Capex &amp; land</h3>
+          <div class="field"><label for="a_solarCapex">Solar ₹ Cr / MWp DC</label><input id="a_solarCapex" type="number" step="0.01" value="2.05"></div>
+          <div class="field"><label for="a_bessCapex">BESS ₹ Cr / MWh nameplate</label><input id="a_bessCapex" type="number" step="0.01" value="1.05"></div>
+          <div class="field"><label for="a_landRate">Land ₹ / acre</label><input id="a_landRate" type="number" step="1000" value="35000"></div>
+          <div class="field"><label for="a_landMode">Land basis</label><select id="a_landMode"><option value="lease">Annual lease</option><option value="buy">One-time purchase</option></select></div>
+          <div class="field"><label for="a_landEsc">Lease escalation %/yr</label><input id="a_landEsc" type="number" step="0.5" value="5"></div>
+          <div class="field"><label for="a_cuf">Solar CUF (AC) %</label><input id="a_cuf" type="number" step="0.5" value="30"></div>
+          <div class="field"><label for="a_auxMW">Solar aux MW per 300 MWac</label><input id="a_auxMW" type="number" step="0.1" value="1"></div>
+          <div class="field"><label for="a_surplus">Surplus solar (battery full)</label><select id="a_surplus"><option value="sell">Sell in the day</option><option value="curtail">Curtail</option></select></div>
+        </div>
+        <div class="grp"><h3>BESS technical</h3>
+          <div class="field"><label for="a_dod">Depth of discharge %</label><input id="a_dod" type="number" step="1" value="90"></div>
+          <div class="field"><label for="a_rte">Round-trip efficiency %</label><input id="a_rte" type="number" step="0.5" value="90"></div>
+          <div class="field"><label for="a_deg">Capacity fade %/yr</label><input id="a_deg" type="number" step="0.1" value="1.5"></div>
+          <div class="field"><label for="a_bessAux">HVAC aux % of discharge</label><input id="a_bessAux" type="number" step="0.1" value="1"></div>
+          <div class="field"><label for="a_lineLoss">Trafo + line loss %</label><input id="a_lineLoss" type="number" step="0.1" value="1"></div>
+          <div class="field"><label for="a_avail">Availability %</label><input id="a_avail" type="number" step="0.5" value="99"></div>
+          <div class="field"><label for="a_augYear">Augmentation year (0 = none)</label><input id="a_augYear" type="number" step="1" value="12"></div>
+          <div class="field"><label for="a_augPct">Augmentation % of BESS capex</label><input id="a_augPct" type="number" step="1" value="20"></div>
+        </div>
+        <div class="grp"><h3>Transmission &amp; exchange</h3>
+          <div class="field"><label for="a_stoa">T-GNA ₹ / MWh drawn (Karnataka)</label><input id="a_stoa" type="number" step="10" value="586"></div>
+          <div class="field"><label for="a_lta">GNA ₹ lakh / MW / month (Karnataka)</label><input id="a_lta" type="number" step="0.1" value="3.96"></div>
+          <div class="field"><label for="a_istsLoss">ISTS loss on drawal %</label><input id="a_istsLoss" type="number" step="0.1" value="3"></div>
+          <div class="field"><label for="a_fee">IEX fee ₹ / MWh, each side</label><input id="a_fee" type="number" step="1" value="15"></div>
+          <p class="hint" style="margin:0">No CTU charges on selling. <b>Source:</b> SRPC RTA, billing period May 2026 (billing month July 2026). Karnataka drawee DICs (5,952 MW GNA) paid ₹235.8 Cr, which is ₹3.96 lakh/MW/month. T-GNA rate under Reg. 11 of the CERC Sharing Regulations 2020, as amended = charges × 1.10 ÷ (days × 96 × GNA) = ₹146.4/MW/block = ₹586/MWh. The MoP ISTS waiver of June 2025 covers only BESS co-located with RE, so it does not apply to IEX-purchase charging.</p>
+        </div>
+        <div class="grp"><h3>Financing &amp; WACC</h3>
+          <div class="field"><label for="a_debtPct">Debt share of capex %</label><input id="a_debtPct" type="number" step="5" min="0" max="90" value="70"></div>
+          <div class="field"><label for="a_kd">Interest rate (Kd) %</label><input id="a_kd" type="number" step="0.25" value="9.5"></div>
+          <div class="field"><label for="a_tenor">Loan tenor, yrs</label><input id="a_tenor" type="number" step="1" value="15"></div>
+          <div class="field"><label for="a_ke">Cost of equity (Ke) %</label><input id="a_ke" type="number" step="0.5" value="14"></div>
+          <p class="hint" style="margin:0">Equal principal repayments from year 1, interest on the opening balance. DSCR excludes augmentation (assumed funded from a reserve) and the equity-funded cost. WACC = Ke × E + Kd × (1 − tax) × D. The model discounts NPV and levelised cost at WACC.</p>
+        </div>
+        <div class="grp"><h3>Finance &amp; O&amp;M</h3>
+          <div class="field"><label for="a_life">Project life, yrs</label><input id="a_life" type="number" step="1" value="25"></div>
+                    <div class="field"><label for="a_tax">Corporate tax %</label><input id="a_tax" type="number" step="0.01" value="25.17"></div>
+          <div class="field"><label for="a_esc">IEX price escalation %/yr</label><input id="a_esc" type="number" step="0.5" value="0"></div>
+          <div class="field"><label for="a_omSolar">Solar O&amp;M ₹ lakh / MWac / yr</label><input id="a_omSolar" type="number" step="0.5" value="5"></div>
+          <div class="field"><label for="a_omBess">BESS O&amp;M % of capex / yr</label><input id="a_omBess" type="number" step="0.1" value="0.5"></div>
+          <div class="field"><label for="a_omEsc">O&amp;M escalation %/yr</label><input id="a_omEsc" type="number" step="0.5" value="3"></div>
+          <div class="field"><label for="a_solDeg">Solar degradation %/yr</label><input id="a_solDeg" type="number" step="0.1" value="0.5"></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="card notes">
+    <span class="lbl">Method</span>
+    <ul>
+      <li><b>Sizing:</b> energy to sell = night connectivity × window hours. The BESS nameplate is that energy grossed up for discharge loss, HVAC load, trafo/line loss, depth of discharge and year-1 average fade. The BESS power rating equals the connectivity.</li>
+      <li><b>Own-solar charging:</b> solar AC capacity = sizing % × daily charging need ÷ (CUF × 24 h), capped at the connectivity. DC capacity and land follow each plant's DC/AC ratio and acres per MWp. Charging costs nothing per MWh because the solar is built for the BESS and its capex is in the project. When the battery is full, surplus solar is sold in the day (or curtailed, if you choose), using the highest-priced blocks. Solar produced during the discharge window is curtailed. No CTU drawal charges apply.</li>
+      <li><b>IEX-purchase charging:</b> standalone BESS drawing at up to the connectivity MW. The charge window is lengthened to cover ISTS and line losses. Purchases pay the IEX fee plus STOA (T-GNA, ₹/MWh) or LTA (GNA, fixed ₹/MW/month); sales pay no CTU charge.</li>
+      <li><b>Prices:</b> IEX MCP in 15-minute blocks over 365 days (<span id="dataRange"></span>), one cycle a day. A window that crosses midnight uses that day's early-morning blocks.</li>
+      <li><b>Returns:</b> unlevered project IRR, pre- and post-tax. Depreciation is straight-line over the project life, with no loss carry-forward. Fade is linear and augmentation restores capacity. Equity IRR uses the debt share, interest rate and tenor in Financing; interest is tax-deductible. NPV and levelised cost are discounted at WACC. Levelised cost = PV of all costs, net of solar surplus sales ÷ PV of BESS MWh sold. The model assumes the plant's bids do not move the clearing price.</li>
+    </ul>
+  </section>
+  </div>
+<div id="view2" hidden>
+  <div class="head">
+    <div><h1 id="t2Title">Two cycles a day</h1><p id="t2Sub"></p></div>
+    <div class="toolbar">
+      <div class="seg" id="t2Dur" aria-label="BESS duration"><button data-v="2">2-hour</button><button data-v="4">4-hour</button></div>
+      <div class="seg" id="t2Tx" aria-label="Transmission for purchase"><button data-v="stoa">T-GNA</button><button data-v="lta">GNA / LTA</button></div>
+      <div class="mk"><select id="t2Buy" aria-label="Buy from market"><option value="DAM">Buy · DAM</option><option value="GDAM">Buy · GDAM</option><option value="RTM">Buy · RTM</option></select>
+        <select id="t2Sell" aria-label="Sell on market"><option value="DAM">Sell · DAM</option><option value="GDAM">Sell · GDAM</option><option value="RTM">Sell · RTM</option></select></div>
+    </div>
+  </div>
+  <section class="cmp" id="t2Cmp" aria-live="polite"></section>
+  <section class="card" id="t2NoteCard">
+    <div class="card-h"><div><span class="lbl">Output note</span><h2>Does a second cycle pay?</h2></div></div>
+    <ul class="note-list" id="t2Note"></ul>
+  </section>
+  <section class="card">
+    <div class="card-h">
+      <div><span class="lbl">Operating windows · 2 cycles a day</span><h2>Two charge and two discharge windows</h2></div>
+      <button class="btn" id="t2Best">Find best windows</button>
+    </div>
+    <div class="ctls four">
+      <div class="sl"><div class="row"><b>Charge 1 · IEX buy</b><span id="t2c1T"></span></div><input type="range" id="t2c1" min="0" max="95" step="1" aria-label="Charge window 1 start"></div>
+      <div class="sl"><div class="row"><b>Discharge 1 · IEX sell</b><span id="t2d1T"></span></div><input type="range" id="t2d1" min="0" max="95" step="1" aria-label="Discharge window 1 start"></div>
+      <div class="sl"><div class="row"><b>Charge 2 · IEX buy</b><span id="t2c2T"></span></div><input type="range" id="t2c2" min="0" max="95" step="1" aria-label="Charge window 2 start"></div>
+      <div class="sl"><div class="row"><b>Discharge 2 · IEX sell</b><span id="t2d2T"></span></div><input type="range" id="t2d2" min="0" max="95" step="1" aria-label="Discharge window 2 start"></div>
+    </div>
+    <p class="warnline" id="t2Warn"></p>
+    <div class="legend" id="t2Legend"></div>
+    <div class="cw"><svg id="t2Price"></svg></div>
+    <p class="hint" id="t2WinNote"></p>
+  </section>
+  <div class="two even">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Battery health</span><h2>State of health over the project life</h2></div><p id="t2SohNote"></p></div>
+      <div class="cw"><svg id="t2Soh"></svg></div>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Cash · ₹ Cr</span><h2>Cumulative post-tax project cash flow</h2></div><p id="t2CumNote"></p></div>
+      <div class="cw"><svg id="t2Cum"></svg></div>
+    </section>
+  </div>
+  <div class="two even">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Year 1 · side by side</span><h2>One cycle vs two cycles</h2></div></div>
+      <table class="pl" id="t2Tbl"></table>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Inputs</span><h2>CATL 12,000-cycle BESS</h2></div></div>
+      <div class="grp" style="background:none;border:0;padding:0">
+        <div class="field"><label for="t2_capex">BESS ₹ Cr / MWh nameplate</label><input id="t2_capex" type="number" step="0.01" value="1.05"></div>
+        <div class="field"><label for="t2_cycles">Rated cycle life</label><input id="t2_cycles" type="number" step="500" value="12000"></div>
+        <div class="field"><label for="t2_eol">End-of-life capacity %</label><input id="t2_eol" type="number" step="1" value="70"></div>
+        <div class="field"><label for="t2_cal">Calendar fade %/yr</label><input id="t2_cal" type="number" step="0.1" value="0.3"></div>
+        <div class="field"><label for="t2_dod">Depth of discharge %</label><input id="t2_dod" type="number" step="1" value="90"></div>
+        <div class="field"><label for="t2_rte">Round-trip efficiency %</label><input id="t2_rte" type="number" step="0.5" value="90"></div>
+        <div class="field"><label for="t2_aux">HVAC aux % of discharge</label><input id="t2_aux" type="number" step="0.1" value="1"></div>
+        <div class="field"><label for="t2_avail">Availability %</label><input id="t2_avail" type="number" step="0.5" value="99"></div>
+        <div class="field"><label for="t2_rep">Cell replacement at end of life, % of BESS capex</label><input id="t2_rep" type="number" step="1" value="35"></div>
+        <p class="hint" style="margin:0">Fade per cycle = (100% − end-of-life) ÷ rated cycles, plus calendar fade. When capacity reaches end-of-life, the cells are replaced at the cost above. Line and ISTS losses, T-GNA/GNA rates, the IEX fee, BESS O&amp;M, tax, financing and project life come from the Assumptions on the Solar + BESS tab. Solar is not used on this tab. The 12,000-cycle rating is your input and has not been checked against a CATL datasheet.</p>
+      </div>
+    </section>
+  </div>
+</div>
+</main>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+const N = DATA.dates.length;
+const MONTH = DATA.dates.map(s => +s.slice(5,7) - 1);
+const PLANTS = {
+  P7:  {code:'P7',  loc:'Tumkur',    conn:300, refAC:300, refDC:419, refAcres:1200, lat:13.3},
+  P8:  {code:'P8',  loc:'Bidar',     conn:300, refAC:300, refDC:445, refAcres:1200, lat:17.9},
+  P12: {code:'P12', loc:'Kunnoor 4', conn:250, refAC:250, refDC:371, refAcres:1000, lat:15.5},
+};
+const MF = [1.07,1.14,1.15,1.12,1.05,0.86,0.80,0.84,0.92,0.97,1.01,1.03];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const CR = 1e7;
+const S = { plant:'P7', dur:4, src:'solar', tx:'stoa',
+  mkt:{grid:{buy:'DAM', sell:'DAM'}, solar:{buy:'DAM', sell:'GDAM'}},
+  win:{2:{c:44,d:76}, 4:{c:38,d:72}}, a:{} };
+
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+const hhmm = b => { b = ((Math.round(b)%96)+96)%96; return String(Math.floor(b/4)).padStart(2,'0') + ':' + String((b%4)*15).padStart(2,'0'); };
+const dur = nb => { const m = nb*15; return Math.floor(m/60) + 'h' + (m%60 ? ' ' + String(m%60).padStart(2,'0') + 'm' : ''); };
+const inr = (v, d=0) => (+v).toLocaleString('en-IN', {maximumFractionDigits:d, minimumFractionDigits:d});
+const cr = (v, d=0) => '₹' + inr(v/CR, d) + ' Cr';
+const pct = v => v == null || !isFinite(v) ? '< 0%' : (v*100).toFixed(1) + '%';
+const winBlocks = (s, nb) => { const a = []; for (let i=0;i<nb;i++) a.push((s+i)%96); return a; };
+function overlap(c, nc, d, nb){ for (let i=0;i<nc;i++){ const x = (c+i)%96; if (((x-d)%96+96)%96 < nb) return true; } return false; }
+
+function eqOutText(irrOn, eirrOn, R0){
+  const A = S.a, box = $('eqBox'); box.classList.toggle('off', !A.eqOn);
+  const yrs = Math.round(A.eqYears), d = (a, b) => a == null || b == null ? '—' : ((a-b)*100 >= 0 ? '+' : '−') + Math.abs((a-b)*100).toFixed(1) + ' pts';
+  $('eqOut').innerHTML = A.eqOn && R0
+    ? `On · ₹${inr(A.eqCost*Math.max(0,yrs))} Cr in total, expensed in the P&L. Project IRR <b>${pct(irrOn)}</b> vs ${pct(R0.irr)} without (${d(irrOn, R0.irr)}); equity <b>${pct(eirrOn)}</b> vs ${pct(R0.eirr)} (${d(eirrOn, R0.eirr)}).`
+    : `Off · switch on to expense ₹${A.eqCost} Cr a year in years 1–${yrs}, funded by equity.`;
+}
+function readA(){ document.querySelectorAll('[id^="a_"]').forEach(i => { S.a[i.id.slice(2)] = i.type === 'checkbox' ? i.checked : i.tagName === 'SELECT' ? i.value : (parseFloat(i.value) || 0); }); }
+// booster days: the first n September dates from the start day, one per calendar date (latest year if the data has two)
+const BOOST_C = {};
+function boostIdx(start, n){ const s = Math.max(1, Math.min(30, Math.round(start))), e = Math.min(30, s + Math.max(0, Math.round(n)) - 1), key = s+'-'+e;
+  if (BOOST_C[key]) return BOOST_C[key]; const pick = {};
+  DATA.dates.forEach((ds, i) => { const mm = +ds.slice(5,7), dd = +ds.slice(8,10); if (mm === 9 && dd >= s && dd <= e) pick[dd] = i; });
+  return BOOST_C[key] = {idx:Object.values(pick), s, e}; }
+
+/* ---------- unit solar profile (per MWac) ---------- */
+const SOL_CACHE = {};
+function unitSolar(pk){
+  const key = pk + '|' + S.a.cuf; if (SOL_CACHE[key]) return SOL_CACHE[key];
+  const pl = PLANTS[pk]; let avgMf = 0; for (let d=0; d<N; d++) avgMf += MF[MONTH[d]]; avgMf /= N;
+  const out = [];
+  for (let m=0; m<12; m++){
+    const doy = 15 + m*30.4, decl = 23.44*Math.sin(2*Math.PI*(284+doy)/365)*Math.PI/180, lat = pl.lat*Math.PI/180;
+    const L = 24/Math.PI*Math.acos(-Math.tan(lat)*Math.tan(decl)), rise = 12.25 - L/2, set = 12.25 + L/2;
+    const target = S.a.cuf/100*24 * MF[m]/avgMf;
+    const shape = A => { const a = new Float64Array(96); let e = 0;
+      for (let b=0;b<96;b++){ const x = ((b+.5)/4 - rise)/(set-rise); const v = x>0 && x<1 ? Math.min(1, A*Math.pow(Math.sin(Math.PI*x),1.35)) : 0; a[b]=v; e+=v*.25; }
+      return [a,e]; };
+    let lo=0, hi=6; for (let i=0;i<50;i++){ const mid=(lo+hi)/2; if (shape(mid)[1] < target) lo=mid; else hi=mid; }
+    out.push(shape(hi)[0]);
+  }
+  return SOL_CACHE[key] = out;
+}
+
+/* ---------- sizing from connectivity ---------- */
+function sizing(pk, h){
+  const p = PLANTS[pk], A = S.a, eta = Math.sqrt(A.rte/100), soh1 = 1 - (A.deg/100)*.5;
+  const kD = eta*(1-A.bessAux/100)*(1-A.lineLoss/100);
+  const sell = p.conn*h, stored = sell/kD, name = stored/(A.dod/100)/soh1;
+  const needSolar = stored/eta, needGrid = needSolar/(1-A.lineLoss/100)/(1-A.istsLoss/100);
+  const nb = h*4, nc = Math.min(96-nb, Math.ceil(needGrid/(p.conn*.25) - 1e-9));
+  const acRaw = (A.solarSize/100)*needSolar/(A.cuf/100*24);
+  const ac = Math.min(p.conn, acRaw), dc = ac*p.refDC/p.refAC, acres = dc*p.refAcres/p.refDC;
+  return {P:p.conn, h, nb, nc, sell, stored, name, needSolar, needGrid, ac, acCapped: acRaw > p.conn + 1e-6, dc, acres, eta, kD, soh1, aux: A.auxMW*ac/300};
+}
+
+/* ---------- scenario run: all years ---------- */
+function run(sc){
+  const A = S.a, z = sizing(sc.pk, sc.h), p = PLANTS[sc.pk], av = A.avail/100, life = Math.max(1, Math.round(A.life));
+  const ps = DATA[sc.sell], pb = DATA[sc.buy], db = winBlocks(sc.d, z.nb);
+  const dAvg = new Float64Array(N);
+  for (let d=0; d<N; d++){ let s=0; for (const b of db) s += ps[d][b]; dAvg[d] = s/z.nb; }
+  if (A.boostOn && !sc.noBoost) for (const d of boostIdx(A.boostStart, A.boostDays).idx) dAvg[d] = A.boostPrice*1000;
+  const month = new Array(12).fill(0);
+  const years = []; const deg = A.deg/100, aug = Math.round(A.augYear);
+  const sohY = y => Math.max(0.4, 1 - deg*(aug>0 && y>aug ? y-aug-0.5 : y-0.5));
+  const y1 = {};
+  if (sc.src === 'grid'){
+    const cb = winBlocks(sc.c, z.nc); let buyC = 0, sellR = 0;
+    const adder = (sc.tx==='stoa' ? A.stoa : 0) + A.fee;
+    for (let d=0; d<N; d++){ let s=0; for (const b of cb) s += pb[d][b]; const bc = z.needGrid*s/z.nc, sr = z.sell*dAvg[d];
+      buyC += bc; sellR += sr; month[MONTH[d]] += (sr - z.sell*A.fee - bc - z.needGrid*adder)*av; }
+    if (sc.tx === 'lta') for (let i=0;i<12;i++) month[i] -= z.P*A.lta*1e5;
+    Object.assign(y1, {buyMWh:z.needGrid*N*av, buyCost:buyC*av, bessMWh:z.sell*N*av, bessRev:sellR*av, storedMWh:z.stored*N*av});
+    for (let y=1; y<=life; y++){ const bf = sohY(y)/z.soh1;
+      years.push({bessMWh:y1.bessMWh*bf, bessRev:y1.bessRev*bf, buyMWh:y1.buyMWh*bf, buyCost:y1.buyCost*bf, expMWh:0, expRev:0}); }
+  } else {
+    const sol = unitSolar(sc.pk), inDb = new Uint8Array(96); db.forEach(b => inDb[b] = 1);
+    // per-day solar blocks sorted by price, outside discharge window
+    const off = new Int32Array(N+1), pr = [], en = []; const totE = new Float64Array(N), totV = new Float64Array(N), curt = new Float64Array(N);
+    for (let d=0; d<N; d++){ const s = sol[MONTH[d]], row = ps[d], list = [];
+      for (let b=0;b<96;b++){ if (s[b] <= 0) continue; if (inDb[b]) { curt[d] += s[b]*.25; continue; } list.push(b); }
+      list.sort((a,b) => row[a]-row[b]); off[d] = pr.length;
+      for (const b of list){ pr.push(row[b]); en.push(s[b]*.25); totE[d] += s[b]*.25; totV[d] += s[b]*.25*row[b]; }
+    }
+    off[N] = pr.length;
+    let auxP = 0; for (let d=0; d<N; d++) for (let b=0;b<96;b++) auxP += ps[d][b]*.25;
+    y1.auxCost = z.aux*auxP; y1.auxMWh = z.aux*24*N;
+    const yearSim = (bf, sf, rec) => {
+      const capIn = z.needSolar*bf, k = z.ac*sf; let r = {bessMWh:0, bessRev:0, expMWh:0, expRev:0, chMWh:0, opp:0, curt:0, fullDays:0, stored:0};
+      for (let d=0; d<N; d++){
+        let need = capIn, ch = 0, chV = 0;
+        for (let i=off[d]; i<off[d+1] && need > 1e-9; i++){ const e = Math.min(en[i]*k, need); ch += e; chV += e*pr[i]; need -= e; }
+        if (need <= 1e-6) r.fullDays++;
+        const surE = totE[d]*k - ch, surV = totV[d]*k - chV;
+        const deliv = ch*z.eta*z.kD;
+        if (A.surplus === 'curtail') r.curt += surE + (1-av)*ch; else { r.expMWh += surE + (1-av)*ch; r.expRev += surV + (1-av)*chV; }
+        r.bessMWh += deliv*av; r.bessRev += deliv*dAvg[d]*av; r.chMWh += ch*av; r.opp += chV*av; r.curt += curt[d]*k; r.stored += ch*z.eta*av;
+        if (rec) month[MONTH[d]] += (deliv*dAvg[d] - deliv*A.fee)*av;
+      }
+      return r;
+    };
+    for (let y=1; y<=life; y++){ const r = yearSim(sohY(y)/z.soh1, Math.pow(1-A.solDeg/100, y-1), y===1); years.push(r); if (y===1) Object.assign(y1, r, {storedMWh:r.stored}); }
+  }
+  // cash flows
+  const capB = z.name*A.bessCapex*CR, solar = sc.src === 'solar';
+  const capS = solar ? z.dc*A.solarCapex*CR : 0, land = solar ? z.acres*A.landRate : 0, capL = A.landMode === 'buy' ? land : 0;
+  const capex = capB + capS + capL, cf = [-capex], pre = [-capex], rows = [];
+  const D = Math.min(0.95, Math.max(0, A.debtPct/100)), wacc = (1-D)*A.ke/100 + D*A.kd/100*(1-A.tax/100), disc = wacc;
+  let pvCost = capex, pvMWh = 0, pvRev = 0;
+  const debt = capex*D, equity = capex - debt, tenor = Math.max(1, Math.round(A.tenor)), prin = debt/tenor;
+  let bal = debt; const ecf = [-equity], dscr = [];
+  years.forEach((Y, i) => { const y = i+1;
+    const pe = Math.pow(1+A.esc/100, i), oe = Math.pow(1+A.omEsc/100, i);
+    const bessRev = Y.bessRev*pe, expRev = Y.expRev*pe, rev = bessRev + expRev;
+    const energy = (Y.buyCost||0)*pe;
+    const ctu = solar ? 0 : (sc.tx === 'stoa' ? Y.buyMWh*A.stoa : z.P*A.lta*1e5*12);
+    const fees = ((Y.buyMWh||0) + Y.bessMWh + Y.expMWh)*A.fee;
+    const aux = solar ? y1.auxCost*pe : 0;
+    const om = capB*A.omBess/100*oe + (solar ? z.ac*A.omSolar*1e5*oe : 0);
+    const lease = solar && A.landMode === 'lease' ? land*Math.pow(1+A.landEsc/100, i) : 0;
+    const augC = aug>0 && y===aug ? capB*A.augPct/100 : 0;
+    const eqc = A.eqOn && !sc.noEq && y <= Math.round(A.eqYears) ? A.eqCost*CR : 0;
+    const ebitda = rev - energy - ctu - fees - aux - om - lease - eqc;
+    const tax = Math.max(0, ebitda - capex/life - augC)*A.tax/100;
+    cf.push(ebitda - augC - tax); pre.push(ebitda - augC);
+    const intr = bal*A.kd/100, rep = y <= tenor ? Math.min(bal, prin) : 0;
+    const taxE = Math.max(0, ebitda - capex/life - augC - intr)*A.tax/100;
+    ecf.push(ebitda - augC - taxE - intr - rep); if (intr + rep > 0) dscr.push((ebitda + eqc - taxE)/(intr + rep)); bal -= rep;
+    const f = Math.pow(1+disc, y);
+    pvCost += (energy + ctu + fees + aux + om + lease + eqc + augC - expRev)/f; pvMWh += Y.bessMWh/f; pvRev += bessRev/f;
+    rows.push({y, rev, bessRev, expRev, energy, ctu, fees, aux, om, lease, eqc, augC, ebitda, tax});
+  });
+  const npv = cf.reduce((s,c,i) => s + c/Math.pow(1+disc,i), 0);
+  return {sc, z, y1, years, rows, month, cf, pre, ecf, capex, capB, capS, capL, npv, irr:irr(cf), irrPre:irr(pre), pb:payback(cf), wacc, equity, eirr:irr(ecf), dscrMin: dscr.length ? Math.min(...dscr) : null,
+    lcos: pvMWh ? pvCost/pvMWh : 0, lsp: pvMWh ? pvRev/pvMWh : 0};
+}
+function irr(c){
+  const npv = r => { let s=0, f=1; for (let i=0;i<c.length;i++){ s += c[i]/f; f *= 1+r; } return s; };
+  let lo=-0.9, hi=2, flo=npv(lo), fhi=npv(hi); if (!isFinite(flo) || flo*fhi > 0) return null;
+  for (let i=0;i<90;i++){ const mid=(lo+hi)/2, f=npv(mid); if (f*flo>0){lo=mid;flo=f;} else hi=mid; } return (lo+hi)/2;
+}
+function payback(c){ let cum = c[0]; for (let i=1;i<c.length;i++){ const prev = cum; cum += c[i]; if (cum >= 0 && prev < 0) return i-1 + (-prev)/c[i]; } return null; }
+const scOf = (h, src, tx) => ({pk:S.plant, h, src, tx, c:S.win[h].c, d:S.win[h].d, buy:S.mkt[src].buy, sell:S.mkt[src].sell});
+
+/* ---------- optimiser ---------- */
+function findBest(){
+  const h = S.dur, z = sizing(S.plant, h), sc = scOf(h, S.src, S.tx);
+  if (S.src === 'grid'){
+    const pb = DATA[sc.buy], ps = DATA[sc.sell], WB = new Float64Array(96), WS = new Float64Array(96);
+    for (let s=0;s<96;s++){ let tb=0, ts=0; for (let d=0; d<N; d++){ for (let i=0;i<z.nc;i++) tb += pb[d][(s+i)%96]; for (let i=0;i<z.nb;i++) ts += ps[d][(s+i)%96]; } WB[s]=tb/z.nc; WS[s]=ts/z.nb; }
+    let best=-Infinity, bc=0, bd=0;
+    for (let c=0;c<96;c++) for (let d=0;d<96;d++){ if (overlap(c, z.nc, d, z.nb)) continue; const v = z.sell*WS[d] - z.needGrid*WB[c]; if (v > best){ best=v; bc=c; bd=d; } }
+    return {c:bc, d:bd};
+  }
+  const life0 = S.a.life; S.a.life = 1;
+  let best=-Infinity, bd=sc.d;
+  for (let d=0; d<96; d++){ const r = run(Object.assign({}, sc, {d})); const v = r.rows[0].ebitda; if (v > best){ best=v; bd=d; } }
+  S.a.life = life0; return {c:S.win[h].c, d:bd};
+}
+
+/* ---------- render: sidebar ---------- */
+function renderTabs(){
+  const t = $('plantTabs'); t.innerHTML = '';
+  for (const k in PLANTS){ const p = PLANTS[k], z = sizing(k, S.dur);
+    const b = document.createElement('button'); b.className = 'tab'; b.setAttribute('role','tab'); b.setAttribute('aria-selected', S.plant===k ? 'true':'false');
+    b.innerHTML = `<span class="t1"><span class="code">${p.code}</span><span class="loc">${p.loc}</span></span>
+      <span class="conn">${inr(p.conn)}<small>MW night connectivity</small></span>
+      <span class="t3">BESS ${inr(z.name)} MWh${S.src==='solar' ? ` · PV ${inr(z.ac)} MWac` : ''}</span>`;
+    b.onclick = () => { S.plant = k; full(); };
+    t.appendChild(b); }
+  $('connInput').value = PLANTS[S.plant].conn;
+}
+
+/* ---------- main update ---------- */
+let CUR = null;
+function update(live){
+  readA();
+  const pl = PLANTS[S.plant], h = S.dur, w = S.win[h], solar = S.src === 'solar';
+  const sc = scOf(h, S.src, S.tx), R = run(sc), z = R.z; CUR = R;
+  { const B = boostIdx(S.a.boostStart, S.a.boostDays), nd = B.idx.length;
+    const R0 = S.a.boostOn ? run(Object.assign({}, sc, {noBoost:true})) : R;
+    const a1 = R.y1.bessRev/R.y1.bessMWh, a0 = R0.y1.bessRev/R0.y1.bessMWh, di = R.irr != null && R0.irr != null ? (R.irr - R0.irr)*100 : null;
+    $('boostOut').innerHTML = S.a.boostOn
+      ? `${B.s}–${B.e} Sep (${nd} days in the data) at ₹${S.a.boostPrice}/kWh · average BESS sale price <b>₹${inr(a1)}/MWh</b> vs ₹${inr(a0)} without · year-1 revenue +${cr(R.y1.bessRev - R0.y1.bessRev, 1)} · project IRR <b>${pct(R.irr)}</b> (${di == null ? '—' : (di >= 0 ? '+' : '−') + Math.abs(di).toFixed(2) + ' pts'})`
+      : `Off · turn on to sell the evening discharge at ₹${S.a.boostPrice}/kWh on ${B.s}–${B.e} Sep (${nd} days)`;
+    $('boostBar').classList.toggle('on', !!S.a.boostOn); }
+  eqOutText(R.irr, R.eirr, S.a.eqOn ? run(Object.assign({}, sc, {noEq:true})) : null);
+  const scKey = JSON.stringify(sc) + JSON.stringify(S.a) + PLANTS[S.plant].conn;
+  if (!anyEdited()) PE.base = null;
+  else if (!live || !PE.base || PE.base.key !== scKey){ const sw = {}; MK3.forEach(m => { sw[m] = DATA[m]; DATA[m] = ORIG[m]; });
+    PE.base = {key:scKey, irr:run(sc).irr}; MK3.forEach(m => DATA[m] = sw[m]); }
+  setSeg('durSeg', String(h)); setSeg('srcSeg', S.src); setSeg('txSeg', S.tx);
+  [...$('txSeg').children].forEach(b => b.disabled = solar);
+  $('buyMkt').value = S.mkt[S.src].buy; $('sellMkt').value = S.mkt[S.src].sell; $('buyMkt').hidden = solar;
+  $('chargeCtl').hidden = solar; $('solarCtl').hidden = !solar;
+  $('cSlider').value = w.c; $('dSlider').value = w.d;
+  $('cTxt').textContent = `${hhmm(w.c)} → ${hhmm(w.c+z.nc)} · ${dur(z.nc)}`;
+  $('dTxt').textContent = `${hhmm(w.d)} → ${hhmm(w.d+z.nb)} · ${dur(z.nb)}`;
+  $('title').textContent = `${pl.code} · ${pl.loc}`;
+  $('subtitle').textContent = solar
+    ? `Solar ${inr(z.ac)} MWac / ${inr(z.dc)} MWp charging a ${inr(z.P)} MW / ${inr(z.name)} MWh BESS · sells ${inr(z.sell)} MWh each evening at ${inr(z.P)} MW`
+    : `Standalone ${inr(z.P)} MW / ${inr(z.name)} MWh BESS · buys on IEX ${sc.buy} with ${S.tx==='stoa'?'STOA (T-GNA)':'LTA (GNA)'}, sells ${inr(z.sell)} MWh on ${sc.sell}`;
+
+  // warnings
+  let warn = '';
+  if (!solar && overlap(w.c, z.nc, w.d, z.nb)) warn = 'The charge and discharge windows overlap. Move one so the battery finishes charging before it discharges.';
+  else if (solar && R.y1.curt > 0.03*R.y1.expMWh + 1000) warn = `The discharge window overlaps daylight, so ${inr(R.y1.curt/1000,1)} GWh of solar a year is curtailed while the battery exports at ${inr(z.P)} MW. Move the window later.`;
+  else if (solar && z.acCapped) warn = `Solar is capped at the ${inr(z.P)} MW connectivity, so the battery cannot fill on an average day.`;
+  $('warn').textContent = warn;
+
+  // heroes
+  const W = R.wacc, ok = R.irr != null && R.irr >= W, okE = R.eirr != null && R.eirr >= S.a.ke/100;
+  const y1 = R.rows[0];
+  const lc = R.lcos/1000, ls = R.lsp/1000;
+  const pf = v => (v*100).toFixed(1) + '%';
+  $('heroes').innerHTML = `
+    <div class="card hero primary ${R.irr==null||R.irr<0?'neg':''}">
+      <div class="row"><span class="lbl">Project IRR · post-tax</span><span class="pill ${ok?'good':'bad'}">${ok?'Above':'Below'} WACC</span></div>
+      <span class="v">${pct(R.irr)}</span>
+      <span class="s">${S.a.boostOn ? `<b style="color:var(--hero-acc)">Booster on · ${boostIdx(S.a.boostStart,S.a.boostDays).idx.length} days at ₹${S.a.boostPrice}/kWh</b><br>` : ""}Pre-tax ${pct(R.irrPre)} · ${Math.round(S.a.life)}-year, unlevered${PE.base ? ` · <b style="color:var(--hero-ink)">${pct(PE.base.irr)} at actual IEX prices</b>` : ""}</span>
+    </div>
+    <div class="card hero">
+      <div class="row"><span class="lbl">Equity IRR · post-tax</span><span class="pill ${okE?'good':'bad'}">${okE?'Above':'Below'} Ke ${S.a.ke}%</span></div>
+      <span class="v" style="color:${R.eirr==null||R.eirr<0?'var(--bad)':'var(--ink)'}">${pct(R.eirr)}</span>
+      <span class="s">${S.a.debtPct}:${100-S.a.debtPct} debt:equity · equity ${cr(R.equity)} · min DSCR ${R.dscrMin==null?'—':R.dscrMin.toFixed(2)+'×'} (excl. augmentation)</span>
+    </div>
+    <div class="card hero"><span class="lbl">WACC</span><span class="v">${pf(W)}</span>
+      <div class="bar2" title="Equity and debt weights"><i style="width:${100-S.a.debtPct}%;background:var(--ink)"></i><i style="width:${S.a.debtPct}%;background:var(--bess)"></i></div>
+      <span class="s">Ke ${S.a.ke}% × ${100-S.a.debtPct}% + Kd ${S.a.kd}% × (1 − ${S.a.tax}% tax) × ${S.a.debtPct}%</span></div>
+    <div class="card hero"><span class="lbl">NPV at WACC</span><span class="v" style="color:${R.npv<0?'var(--bad)':'var(--ink)'}">${R.npv<0?'−':''}₹${inr(Math.abs(R.npv)/CR)}<small>Cr</small></span><span class="s">Project cash flow at ${pf(W)} · capex ${cr(R.capex)}</span></div>
+    <div class="card hero"><span class="lbl">Payback</span><span class="v">${R.pb==null?'—':R.pb.toFixed(1)}<small>${R.pb==null?'beyond life':'years'}</small></span><span class="s">Project, post-tax, undiscounted</span></div>`;
+  const chAvg = solar ? 0 : R.y1.buyCost/R.y1.buyMWh;
+  const sAvg = R.y1.bessRev/R.y1.bessMWh;
+  $('minis').innerHTML = [
+    ['Total capex', cr(R.capex), solar ? `BESS ${cr(R.capB)} · Solar ${cr(R.capS)}` : `${inr(z.name)} MWh × ₹${S.a.bessCapex} Cr`],
+    ['Year-1 revenue', cr(y1.rev, 1), solar ? `BESS ${cr(y1.bessRev,1)} · surplus solar ${cr(y1.expRev,1)}` : `${sc.sell} evening sales`],
+    ['Year-1 EBITDA', cr(y1.ebitda, 1), `Margin ${(y1.ebitda/y1.rev*100).toFixed(0)}%`],
+    ['BESS energy sold', inr(R.y1.bessMWh/1000, 1) + ' GWh', `${inr(z.sell)} MWh/day × ${S.a.avail}% availability`],
+    solar ? ['Evening sale price', '₹' + inr(sAvg) + '/MWh', `Charging cost ₹0 · own solar, capex ${cr(R.capS)} in project`]
+          : ['Spread captured', '₹' + inr(sAvg - chAvg) + '/MWh', `Sell ${inr(sAvg)} · buy ${inr(chAvg)}`],
+    ['Levelised cost vs price', `₹${lc.toFixed(2)} / ₹${ls.toFixed(2)}`, `per kWh sold, at WACC · ${lc<=ls ? 'cost below price' : 'cost above price'}`],
+  ].map(([l,v,s]) => `<div class="card mini"><span class="lbl">${l}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join('');
+
+  renderChain(R); if (!live){ renderMatrix(); renderTabs(); }
+  $('cAvg').textContent = `Draws ${inr(z.needGrid/(z.nc*.25))} MW for ${dur(z.nc)} · avg ${sc.buy} ₹${inr(chAvg)}/MWh + ${S.tx==='stoa' ? '₹'+S.a.stoa+'/MWh T-GNA' : 'GNA fixed charge'}`;
+  $('sTxt').textContent = `${S.a.solarSize}% · ${inr(z.ac)} MWac`;
+  $('sAvg').textContent = `Battery fully charged on ${R.y1.fullDays} of ${N} days · average fill ${(R.y1.storedMWh/(z.stored*N*S.a.avail/100)*100).toFixed(0)}%`;
+  $('capSlider').value = S.a.bessCapex;
+  $('capTxt').textContent = `₹${S.a.bessCapex.toFixed(2)} Cr/MWh`;
+  $('capAvg').textContent = `${inr(z.name)} MWh nameplate → BESS capex ${cr(R.capB)} · total ${cr(R.capex)}`;
+  { const d = PE.base && R.irr != null && PE.base.irr != null ? (R.irr - PE.base.irr)*100 : null;
+    $('irrBadge').innerHTML = `<span class="lbl">Project IRR · post-tax</span><span class="v ${R.irr==null||R.irr<0?'neg':''}">${pct(R.irr)}</span>
+      <span class="s">Equity ${pct(R.eirr)} · WACC ${(R.wacc*100).toFixed(1)}%</span><span class="s">Pre-tax ${pct(R.irrPre)} · BESS ₹${S.a.bessCapex.toFixed(2)} Cr/MWh</span>
+      ${PE.base ? `<span class="d" style="color:${d==null?'var(--hero-muted)':d>=0?'var(--hero-acc)':'#FF8A80'}">${d==null?'':(d>=0?'+':'−')+Math.abs(d).toFixed(1)+' pts'} vs ${pct(PE.base.irr)} at actual prices</span>` : ''}`; }
+  $('dAvg').textContent = `Exports ${inr(z.P)} MW for ${dur(z.nb)} · avg ${sc.sell} ₹${inr(sAvg)}/MWh`;
+  renderPrice(R); renderWaterfall(R); renderPL(R); renderMonth(R); renderCF(R);
+  sceneRefresh(R);
+  if (!live) renderNote(R);
+}
+function setSeg(id, v){ [...$(id).children].forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v ? 'true':'false')); }
+
+function renderChain(R){
+  const z = R.z, solar = S.src === 'solar';
+  const steps = [
+    ['key','Night connectivity', `${inr(z.P)} MW`, 'Key input'],
+    ['','Energy to sell', `${inr(z.sell)} MWh`, `${inr(z.P)} MW × ${z.h} h, every evening`],
+    ['bs','BESS', `${inr(z.name)} MWh`, `${inr(z.P)} MW · nameplate after losses, DoD and fade`],
+    ['', 'Charging need', `${inr(solar ? z.needSolar : z.needGrid)} MWh`, solar ? 'Solar energy into the PCS each day' : `IEX drawal over ${dur(z.nc)}`],
+    solar ? ['sl','Solar plant', `${inr(z.ac)} MWac`, `${inr(z.dc)} MWp · ${inr(z.acres)} acres`] : ['gr','IEX purchase', `${inr(z.needGrid/(z.nc*.25))} MW`, `${S.tx==='stoa'?'STOA':'LTA'} drawal · no solar built`],
+  ];
+  $('chain').innerHTML = steps.map(([c,l,v,s]) => `<div class="step ${c}"><span class="lbl">${l}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join('');
+  const o = sizing(S.plant, z.h === 4 ? 2 : 4);
+  $('chainNote').textContent = solar
+    ? `The ${z.h === 4 ? '2' : '4'}-hour case would need ${inr(o.name)} MWh of BESS and ${inr(o.ac)} MWac of solar. Solar is sized at ${S.a.solarSize}% of the average-day need; raise it to fill the battery on more days.`
+    : `The ${z.h === 4 ? '2' : '4'}-hour case would need ${inr(o.name)} MWh of BESS and ${dur(o.nc)} of charging at the connectivity limit.`;
+}
+function renderMatrix(){
+  const cols = [['solar','stoa','Own solar'], ['grid','stoa','IEX · STOA'], ['grid','lta','IEX · LTA']]; MXR = [];
+  let html = `<thead><tr><th></th>${cols.map(c => `<th>${c[2]}</th>`).join('')}</tr></thead><tbody>`;
+  for (const h of [2,4]){
+    html += `<tr><th class="rh">${h}-hour</th>`;
+    for (const [src, tx] of cols){
+      const R = run(scOf(h, src, src==='solar' ? S.tx : tx)); MXR.push({h, label: src==='solar' ? 'own solar' : (tx==='stoa' ? 'IEX + T-GNA' : 'IEX + GNA/LTA'), irr:R.irr, eirr:R.eirr, wacc:R.wacc});
+      const sel = S.dur===h && S.src===src && (src==='solar' || S.tx===tx);
+      const cls = R.irr == null || R.irr < 0 ? 'bad' : R.irr >= R.wacc ? 'good' : '';
+      html += `<td><button data-h="${h}" data-src="${src}" data-tx="${tx}" aria-pressed="${sel}"><span class="i ${cls}">${pct(R.irr)}</span><span class="c">Equity ${pct(R.eirr)} · ${cr(R.capex)}</span></button></td>`;
+    }
+    html += '</tr>';
+  }
+  $('mx').innerHTML = html + '</tbody>';
+  $('mxNote').textContent = `Project IRR, teal where it clears WACC · equity IRR below · click a cell to open that case`;
+}
+$('mx').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+  S.dur = +b.dataset.h; S.src = b.dataset.src; if (b.dataset.src === 'grid') S.tx = b.dataset.tx; full(); });
+
+/* ---------- output note ---------- */
+let MXR = [];
+function breakEven(sc){ // BESS capex at which project IRR = WACC
+  const c0 = S.a.bessCapex; const f = c => { S.a.bessCapex = c; const R = run(sc); return R.irr == null ? -1 : R.irr - R.wacc; };
+  let lo = 0.1, hi = 3, out;
+  if (f(lo) < 0) out = null; else if (f(hi) > 0) out = Infinity;
+  else { for (let i=0;i<22;i++){ const m = (lo+hi)/2; if (f(m) > 0) lo = m; else hi = m; } out = (lo+hi)/2; }
+  S.a.bessCapex = c0; return out;
+}
+function renderNote(R){
+  const A = S.a, pl = PLANTS[S.plant], z = R.z, sc = R.sc, solar = sc.src === 'solar', Y = R.y1, y1 = R.rows[0];
+  const caseName = `${z.h}-hour · ${solar ? 'own-solar charging' : `IEX ${sc.buy} purchase with ${S.tx==='stoa' ? 'T-GNA' : 'GNA/LTA'}`}`;
+  const gap = R.irr == null ? null : (R.irr - R.wacc)*100, pf = v => (v*100).toFixed(1) + '%';
+  const li = [];
+  li.push(`<b>Verdict.</b> ${pl.code} ${pl.loc}, ${caseName}: project IRR <b>${pct(R.irr)}</b> against WACC ${pf(R.wacc)}. ${gap == null ? 'The project does not recover its capex.' : gap >= 0 ? `It clears WACC by ${gap.toFixed(1)} pts.` : `It is ${(-gap).toFixed(1)} pts short.`} Equity IRR is <b>${pct(R.eirr)}</b> against Ke ${A.ke}%, and NPV at WACC is ${R.npv<0?'−':''}₹${inr(Math.abs(R.npv)/CR)} Cr.`);
+  if (MXR.length){ const ok = MXR.filter(m => m.irr != null).sort((a,b) => b.irr - a.irr), best = ok[0];
+    if (best) li.push(`<b>Best case.</b> Of the six combinations, ${best.h}-hour ${best.label} is the strongest at ${pct(best.irr)} project and ${pct(best.eirr)} equity IRR. ${ok.filter(m => m.irr >= m.wacc).length} of 6 clear WACC.`); }
+  const be = breakEven(sc);
+  li.push(`<b>BESS capex.</b> At ₹${A.bessCapex.toFixed(2)} Cr/MWh the battery costs ${cr(R.capB)}${solar ? ` and the solar ${cr(R.capS)}` : ''}. ${be == null ? 'No capex level in ₹0.1–3.0 Cr/MWh makes this case clear WACC.' : be === Infinity ? 'The case clears WACC at any capex up to ₹3.0 Cr/MWh.' : `Project IRR equals WACC at <b>₹${be.toFixed(2)} Cr/MWh</b>, which is ${be >= A.bessCapex ? `${((be/A.bessCapex-1)*100).toFixed(0)}% headroom above` : `${((1-be/A.bessCapex)*100).toFixed(0)}% below`} the current price.`}`);
+  const sAvg = Y.bessRev/Y.bessMWh;
+  if (solar) li.push(`<b>Revenue.</b> Evening sales average ₹${inr(sAvg)}/MWh on ${sc.sell}. Charging from own solar costs nothing per MWh, so the return depends on capex: ${inr(Y.bessMWh/1000,1)} GWh a year sold${y1.expRev > 0 ? `, plus ${cr(y1.expRev,1)} from surplus solar sold in the day` : ''}.`);
+  else { const b = Y.buyCost/Y.buyMWh; li.push(`<b>Spread.</b> Sell ₹${inr(sAvg)} against buy ₹${inr(b)}/MWh on ${sc.buy}. Each MWh sold needs ${(z.needGrid/z.sell).toFixed(2)} MWh bought after round-trip, ISTS and line losses${S.tx==='stoa' ? `, and T-GNA adds ₹${A.stoa}/MWh on every MWh drawn (${cr(y1.ctu,1)} in year 1)` : `. The GNA/LTA fixed charge of ${cr(y1.ctu,1)} a year is ${(y1.ctu/Math.max(1,y1.rev - y1.energy)*100).toFixed(0)}% of the gross margin at one cycle a day`}.`); }
+  li.push(`<b>Energy.</b> ${inr(z.P)} MW × ${z.h} h = ${inr(z.sell)} MWh a night from a ${inr(z.name)} MWh nameplate (sold ÷ nameplate ${(z.sell/z.name*100).toFixed(0)}%). ${solar ? `At ${A.solarSize}% solar sizing (${inr(z.ac)} MWac), the battery fills on ${Y.fullDays} of ${N} days. Raise the sizing to about 130% to fill it every day.` : `Charging runs ${dur(z.nc)} at up to ${inr(z.needGrid/(z.nc*.25))} MW from ${hhmm(S.win[z.h].c)}.`}`);
+  li.push(`<b>Debt.</b> ${A.debtPct}% debt at ${A.kd}% over ${A.tenor} years gives a minimum DSCR of <b>${R.dscrMin == null ? '—' : R.dscrMin.toFixed(2) + '×'}</b>. ${R.dscrMin != null && R.dscrMin < 1.2 ? 'That is below the ~1.2× lenders usually require, so gearing or tenor would need to change.' : 'That meets the ~1.2× lenders usually require.'}`);
+  const cav = [];
+  if (anyEdited()) cav.push('IEX prices have been edited on the chart; the verdict above uses the edited prices');
+  cav.push(`${inr(z.P)} MW of evening selling is assumed not to move the clearing price`);
+  cav.push(`prices cover one year (${DATA.dates[0]} to ${DATA.dates[N-1]})`);
+  if (!solar) cav.push('T-GNA is derived from the SRPC May 2026 statement and changes every month');
+  li.push(`<b>Caveats.</b> ${cav.join('; ')}.`);
+  $('noteList').innerHTML = li.map(x => `<li>${x}</li>`).join('');
+  $('noteMeta').textContent = 'Updates with every input change';
+}
+
+/* ---------- price chart & editable price curve ---------- */
+let PC = null; const AVG = {};
+function avgOf(m){ if (AVG[m]) return AVG[m]; const a = new Float64Array(96); for (let d=0;d<N;d++) for (let b=0;b<96;b++) a[b] += DATA[m][d][b]; return AVG[m] = a.map(v => v/N); }
+const MK3 = ['DAM','GDAM','RTM'], ORIG = {}, A0 = {}, EDIT = {};
+MK3.forEach(m => { ORIG[m] = DATA[m].map(r => r.slice()); EDIT[m] = new Float64Array(96);
+  const a = new Float64Array(96); for (let d=0;d<N;d++) for (let b=0;b<96;b++) a[b] += ORIG[m][d][b]; A0[m] = a.map(v => v/N); });
+const PE = {unlocked:false, sigma:5, drag:null, target:{}, raf:0, ymax:12000, hov:null, base:null};
+const isEdited = m => EDIT[m].some(v => Math.abs(v) > 0.5);
+const anyEdited = () => MK3.some(isEdited);
+// scale every day's price in a block by the ratio of new to original average, so day-to-day shape is kept
+function applyEdit(m){
+  const a0 = A0[m], e = EDIT[m], f = new Float64Array(96), add = new Float64Array(96);
+  for (let b=0;b<96;b++){ if (a0[b] > 50) f[b] = Math.max(0, a0[b]+e[b])/a0[b]; else { f[b] = 1; add[b] = e[b]; } }
+  const src = ORIG[m], dst = DATA[m];
+  for (let d=0; d<N; d++){ const s = src[d], t = dst[d]; for (let b=0;b<96;b++) t[b] = Math.max(0, s[b]*f[b] + add[b]); }
+  delete AVG[m];
+}
+// Gaussian brush on a circular 24-hour axis
+const kern = (db, sg) => { let dd = Math.abs(db) % 96; dd = Math.min(dd, 96-dd); return Math.exp(-dd*dd/(2*sg*sg)); };
+function animEdit(){
+  if (PE.raf) return;
+  const step = () => {
+    let moving = false;
+    for (const m in PE.target){
+      const t = PE.target[m], e = EDIT[m]; let mx = 0;
+      for (let b=0;b<96;b++){ const df = t[b]-e[b]; e[b] += df*0.28; mx = Math.max(mx, Math.abs(df)); }
+      if (mx < 0.5){ e.set(t); if (!PE.drag || PE.drag.m !== m) delete PE.target[m]; } else moving = true;
+      applyEdit(m);
+    }
+    update(true);
+    if (moving) PE.raf = requestAnimationFrame(step);
+    else { PE.raf = 0; if (!PE.drag) update(); }
+  };
+  PE.raf = requestAnimationFrame(step);
+}
+function editBar(){
+  const ed = anyEdited();
+  $('unlockBtn').setAttribute('aria-pressed', PE.unlocked ? 'true' : 'false');
+  $('unlockBtn').innerHTML = (PE.unlocked
+    ? '<svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 6 V4.2 a2.5 2.5 0 0 1 5 -.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg> Lock prices'
+    : '<svg width="13" height="13" viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="6" width="9" height="6.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 6 V4.2 a2.5 2.5 0 0 1 5 0 V6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg> Unlock prices');
+  $('brushSeg').hidden = !PE.unlocked;
+  $('resetPx').disabled = !ed;
+  $('priceChart').classList.toggle('editing', PE.unlocked);
+}
+function renderPrice(R){
+  const svg = $('priceChart'), W = Math.max(320, svg.parentNode.clientWidth), H = 300;
+  const m = {l:50, r:56, t:30, b:28}, iw = W-m.l-m.r, ih = H-m.t-m.b;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.innerHTML = '';
+  const sc = R.sc, z = R.z, solar = sc.src === 'solar', w = S.win[z.h];
+  const sellA = avgOf(sc.sell), buyA = solar ? null : avgOf(sc.buy);
+  const us = unitSolar(sc.pk), sol = new Float64Array(96); for (let d=0; d<N; d++) for (let b=0;b<96;b++) sol[b] += us[MONTH[d]][b]/N;
+  const ymax = PE.unlocked ? PE.ymax : Math.ceil(Math.max(...sellA, ...(buyA||[0]), ...A0[sc.sell])/2000)*2000;
+  const x = b => m.l + b/96*iw, y = v => m.t + ih - v/ymax*ih, ys = v => m.t + ih - v*ih*0.9;
+  for (let v=0; v<=ymax; v+=2000){ el('line', {x1:m.l, x2:m.l+iw, y1:y(v), y2:y(v), stroke:'var(--line)'}, svg); el('text', {x:m.l-8, y:y(v)+3.5, 'text-anchor':'end'}, svg).textContent = v===0 ? '0' : '₹'+(v/1000)+'k'; }
+  for (let hh=0; hh<=24; hh+=3) el('text', {x:x(hh*4), y:H-8, 'text-anchor':'middle'}, svg).textContent = String(hh).padStart(2,'0')+':00';
+  el('text', {x:m.l-8, y:m.t-14, 'text-anchor':'end'}, svg).textContent = '₹/MWh';
+  if (solar){ el('text', {x:m.l+iw+6, y:ys(1)+3.5}, svg).textContent = inr(z.ac)+' MW'; el('text', {x:m.l+iw+6, y:ys(0)+3.5}, svg).textContent = '0 MW'; }
+  const band = (s, nb, fill, stroke, label, k) => {
+    const parts = s+nb <= 96 ? [[s, s+nb]] : [[s,96],[0,s+nb-96]];
+    for (const [a,b] of parts){ el('rect', {x:x(a), y:m.t, width:x(b)-x(a), height:ih, fill, 'data-k':k, class:'band'}, svg);
+      el('rect', {x:x(a), y:m.t-3, width:x(b)-x(a), height:3, fill:stroke, 'data-k':k, class:'band'}, svg); }
+    el('text', {x:Math.min(x(parts[0][0])+3, m.l+iw-110), y:m.t-8, style:`fill:${stroke};font-weight:500`}, svg).textContent = label;
+  };
+  if (!solar) band(w.c, z.nc, 'var(--grid-soft)', 'var(--grid)', `Charge ${hhmm(w.c)}–${hhmm(w.c+z.nc)}`, 'c');
+  band(w.d, z.nb, 'var(--bess-soft)', 'var(--bess)', `Discharge ${hhmm(w.d)}–${hhmm(w.d+z.nb)}`, 'd');
+  if (solar){ let d = `M${x(0)},${ys(0)}`; for (let b=0;b<96;b++) d += ` L${x(b+.5)},${ys(sol[b])}`; d += ` L${x(96)},${ys(0)} Z`;
+    el('path', {d, fill:'var(--solar)', opacity:.2, 'pointer-events':'none'}, svg); }
+  // smooth curve through block centres (Catmull-Rom → cubic Bézier)
+  const curve = a => { const p = Array.from(a, (v,b) => [x(b+.5), y(v)]); let d = `M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)}`;
+    for (let i=0;i<p.length-1;i++){ const p0 = p[Math.max(0,i-1)], p1 = p[i], p2 = p[i+1], p3 = p[Math.min(p.length-1,i+2)];
+      d += ` C${(p1[0]+(p2[0]-p0[0])/6).toFixed(1)},${(p1[1]+(p2[1]-p0[1])/6).toFixed(1)} ${(p2[0]-(p3[0]-p1[0])/6).toFixed(1)},${(p2[1]-(p3[1]-p1[1])/6).toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`; }
+    return d; };
+  const line = (a, col, wd, dash) => el('path', {d:curve(a), fill:'none', stroke:col, 'stroke-width':wd, 'stroke-dasharray':dash||'', 'pointer-events':'none', 'stroke-linejoin':'round', 'stroke-linecap':'round'}, svg);
+  const lines = [sc.sell]; if (buyA && sc.buy !== sc.sell) lines.push(sc.buy);
+  const colOf = mk => mk === sc.sell ? 'var(--ink)' : 'var(--grid)';
+  for (const mk of lines) if (isEdited(mk)) line(A0[mk], colOf(mk), 1.2, '2 4').setAttribute('opacity', '.45');
+  if (buyA && sc.buy !== sc.sell) line(buyA, 'var(--grid)', PE.unlocked ? 2.4 : 1.8, '4 3');
+  line(sellA, 'var(--ink)', PE.unlocked ? 2.6 : 2);
+  if (PE.unlocked) for (const mk of lines){ const a = avgOf(mk);
+    for (let b=2; b<96; b+=4) el('circle', {cx:x(b+.5), cy:y(a[b]), r:2.6, fill:'var(--card)', stroke:colOf(mk), 'stroke-width':1.4, 'pointer-events':'none'}, svg); }
+  el('line', {x1:m.l, x2:m.l+iw, y1:m.t+ih, y2:m.t+ih, stroke:'var(--faint)'}, svg);
+  PE.hov = el('g', {'pointer-events':'none', opacity: PE.drag ? 1 : 0}, svg);
+  el('circle', {r:9, fill:'var(--bess-soft)'}, PE.hov); el('circle', {r:5, fill:'var(--card)', stroke:'var(--ink)', 'stroke-width':2}, PE.hov);
+  const hl = el('text', {y:-14, 'text-anchor':'middle', style:'fill:var(--ink);font-weight:500'}, PE.hov);
+  if (PE.drag){ const a = avgOf(PE.drag.m), b = PE.drag.b0; PE.hov.setAttribute('transform', `translate(${x(b+.5)},${y(a[b])})`);
+    hl.textContent = `${hhmm(b)} · ₹${inr(a[b])}`; PE.hov.firstChild.setAttribute('stroke', colOf(PE.drag.m)); }
+  // legend + edit summary
+  const lg = [`<span><i style="background:var(--ink)"></i>${sc.sell} average price${!solar && sc.buy===sc.sell ? ' (buy and sell)' : ''}${isEdited(sc.sell)?' · edited':''}</span>`];
+  if (buyA && sc.buy !== sc.sell) lg.push(`<span><i style="background:var(--grid)"></i>${sc.buy} average price (buy)${isEdited(sc.buy)?' · edited':''}</span>`);
+  if (lines.some(isEdited)) lg.push(`<span><i style="background:var(--faint)"></i>Actual IEX average</span>`);
+  if (solar) lg.push(`<span><i class="box" style="background:var(--solar);opacity:.4"></i>Average solar output, ${inr(z.ac)} MWac (right axis)</span>`);
+  else lg.push(`<span><i class="box" style="background:var(--grid-soft);border:1px solid var(--grid)"></i>Charge window</span>`);
+  lg.push(`<span><i class="box" style="background:var(--bess-soft);border:1px solid var(--bess)"></i>Discharge window</span>`);
+  $('legend').innerHTML = lg.join('');
+  const wAvg = (a, s, nb) => { let t = 0; for (let i=0;i<nb;i++) t += a[(s+i)%96]; return t/nb; };
+  const chg = (a, b) => `₹${inr(a)} → ₹${inr(b)} (${b>=a?'+':'−'}${Math.abs((b/a-1)*100).toFixed(0)}%)`;
+  let note = '';
+  if (anyEdited()){
+    note = `Discharge-window ${sc.sell} average ${chg(wAvg(A0[sc.sell], w.d, z.nb), wAvg(sellA, w.d, z.nb))}`;
+    if (!solar) note += ` · Charge-window ${sc.buy} average ${chg(wAvg(A0[sc.buy], w.c, z.nc), wAvg(avgOf(sc.buy), w.c, z.nc))}`;
+  } else if (PE.unlocked) note = 'Drag any point on the price line. Nearby hours follow on a smooth curve; the brush sets how wide.';
+  $('editNote').textContent = note;
+  PC = {m, iw, ih, ymax, x, y, lines};
+  editBar();
+}
+(function(){ const svg = $('priceChart'); let drag = null;
+  const pos = e => { const rc = svg.getBoundingClientRect(); const px = e.clientX - rc.left, py = e.clientY - rc.top;
+    const b = Math.max(0, Math.min(95, Math.round((px - PC.m.l)/PC.iw*96 - .5))); return {px, py, b, v:(PC.m.t + PC.ih - py)/PC.ih*PC.ymax}; };
+  const blk = e => { const rc = svg.getBoundingClientRect(); return Math.floor((e.clientX - rc.left - PC.m.l)/PC.iw*96); };
+  const pick = p => { let best = null; for (const mk of PC.lines){ const d = Math.abs(p.py - PC.y(avgOf(mk)[p.b])); if (d < 26 && (!best || d < best.d)) best = {mk, d}; } return best; };
+  svg.addEventListener('pointerdown', e => {
+    if (PE.unlocked){ const p = pos(e), hit = pick(p);
+      if (hit){ PE.drag = {m:hit.mk, b0:p.b, start:(PE.target[hit.mk] || EDIT[hit.mk]).slice()}; svg.setPointerCapture(e.pointerId); e.preventDefault(); update(true); return; } }
+    const k = e.target.getAttribute && e.target.getAttribute('data-k'); if (!k) return;
+    drag = {k, off: blk(e) - S.win[S.dur][k]}; svg.setPointerCapture(e.pointerId); e.preventDefault(); });
+  svg.addEventListener('pointermove', e => {
+    if (PE.drag){ const p = pos(e), d = PE.drag, a0 = A0[d.m];
+      const v = Math.max(0, Math.min(PE.ymax, p.v)), delta = v - (a0[d.b0] + d.start[d.b0]), t = new Float64Array(96);
+      for (let b=0;b<96;b++) t[b] = Math.max(-a0[b], Math.min(PE.ymax - a0[b], d.start[b] + delta*kern(b - d.b0, PE.sigma)));
+      PE.target[d.m] = t; animEdit(); return; }
+    if (drag){ const w = S.win[S.dur], nv = ((blk(e) - drag.off) % 96 + 96) % 96; if (nv !== w[drag.k]){ w[drag.k] = nv; schedule(); } return; }
+    if (PE.unlocked && PC){ const p = pos(e), hit = pick(p);
+      svg.style.cursor = hit ? 'ns-resize' : '';
+      if (hit){ const a = avgOf(hit.mk); PE.hov.setAttribute('opacity', 1); PE.hov.setAttribute('transform', `translate(${PC.x(p.b+.5)},${PC.y(a[p.b])})`);
+        PE.hov.lastChild.textContent = `${hhmm(p.b)} · ₹${inr(a[p.b])}`; PE.hov.children[1].setAttribute('stroke', hit.mk === PC.lines[0] ? 'var(--ink)' : 'var(--grid)'); }
+      else PE.hov.setAttribute('opacity', 0); }
+  });
+  const end = () => { drag = null; if (PE.drag){ PE.drag = null; if (!PE.raf) update(); } };
+  svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  svg.addEventListener('pointerleave', () => { if (!PE.drag && PE.hov) PE.hov.setAttribute('opacity', 0); });
+})();
+$('unlockBtn').addEventListener('click', () => {
+  PE.unlocked = !PE.unlocked;
+  if (PE.unlocked){ const mx = Math.max(...MK3.map(m => Math.max(...avgOf(m), ...A0[m]))); PE.ymax = Math.max(12000, Math.ceil(mx/2000)*2000 + 2000); }
+  update();
+});
+$('resetPx').addEventListener('click', () => { MK3.forEach(m => { if (isEdited(m) || PE.target[m]) PE.target[m] = new Float64Array(96); }); animEdit(); });
+$('brushSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; PE.sigma = +b.dataset.v; setSeg('brushSeg', b.dataset.v); });
+let raf = 0; function schedule(){ if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (typeof VIEW !== 'undefined' && VIEW === 2) update2(); else update(); }); }
+
+/* ---------- waterfall ---------- */
+function renderWaterfall(R){
+  const A = S.a, z = R.z, solar = R.sc.src === 'solar', E = z.name;
+  const aDod = E*A.dod/100, aDeg = aDod*z.soh1, aDis = aDeg*z.eta, aAux = aDis*(1-A.bessAux/100), sold = aAux*(1-A.lineLoss/100);
+  const steps = [['BESS nameplate', E, 'total'], [`DoD reserve · ${100-A.dod}%`, aDod-E, 'minus'], [`Fade, year-1 average · ${(A.deg/2).toFixed(1)}%`, aDeg-aDod, 'minus'],
+    ['Stored energy', aDeg, 'sub'], [`Discharge loss · η ${(z.eta*100).toFixed(1)}%`, aDis-aDeg, 'minus'], [`HVAC auxiliary · ${A.bessAux}%`, aAux-aDis, 'minus'],
+    [`Trafo + line to CTU · ${A.lineLoss}%`, sold-aAux, 'minus'], [`Sold · ${inr(z.P)} MW × ${z.h} h`, sold, 'final']];
+  let lvl = 0; const px = v => v/E*100;
+  $('wf').innerHTML = steps.map(([l,v,t]) => { let left, width;
+    if (t === 'minus'){ left = px(lvl+v); width = px(-v); lvl += v; } else { left = 0; width = px(v); lvl = v; }
+    return `<span class="l ${t!=='minus'?'strong':''}">${l}</span><div class="track"><div class="b ${t}" style="left:${left}%;width:${Math.max(width,.4)}%"></div></div><span class="val">${t==='minus'?'−'+inr(-v,1):inr(v,1)} MWh</span>`; }).join('');
+  const need = solar ? z.needSolar : z.needGrid;
+  $('wfFoot').innerHTML = `
+    <span>${solar ? 'Solar energy needed to fill it' : 'IEX purchase to fill it, incl. ISTS and line loss'}: <b>${inr(need,1)} MWh</b> per cycle</span>
+    <span>Sold ÷ ${solar ? 'solar in' : 'bought'}: <b>${(sold/need*100).toFixed(1)}%</b> · Sold ÷ nameplate: <b>${(sold/E*100).toFixed(1)}%</b></span>
+    <span>Year 1: <b>${inr(R.y1.bessMWh)} MWh</b> sold${solar ? `, with ${R.y1.fullDays} of ${N} days fully charged` : ` at ${A.avail}% availability`}</span>`;
+}
+
+/* ---------- P&L ---------- */
+function renderPL(R){
+  const y = R.rows[0], z = R.z, sc = R.sc, solar = sc.src === 'solar', c = v => inr(v/CR, 1), Y = R.y1;
+  const rows = [['sub','Revenue'], ['', `BESS evening sales · ${sc.sell} · ${inr(Y.bessMWh/1000,1)} GWh`, y.bessRev]];
+  if (solar) rows.push(['', `Surplus solar sold in the day · ${inr(R.years[0].expMWh/1000,1)} GWh`, y.expRev]);
+  rows.push(['sub','Operating costs']);
+  if (!solar){ rows.push(['neg', `IEX purchase · ${sc.buy} · ${inr(Y.buyMWh/1000,1)} GWh`, -y.energy]);
+    rows.push(['neg', S.tx==='stoa' ? `CTU · STOA ₹${S.a.stoa}/MWh drawn` : `CTU · LTA ₹${S.a.lta} lakh/MW/month × ${inr(z.P)} MW`, -y.ctu]); }
+  else { rows.push(['', 'CTU charges · charged behind the meter', 0]); rows.push(['neg', `Solar auxiliary · ${z.aux.toFixed(2)} MW`, -y.aux]); }
+  rows.push(['neg', 'IEX transaction fees', -y.fees], ['neg', 'O&M', -y.om]);
+  if (y.lease) rows.push(['neg', `Land lease · ${inr(z.acres)} acres`, -y.lease]);
+  if (y.eqc) rows.push(['neg', `Equity-funded cost · ₹${S.a.eqCost} Cr a year in years 1–${Math.round(S.a.eqYears)}`, -y.eqc]);
+  rows.push(['tot', 'EBITDA', y.ebitda], ['sub', 'Capex']);
+  rows.push(['', `BESS ${inr(z.name)} MWh × ₹${S.a.bessCapex} Cr`, R.capB]);
+  if (R.capS) rows.push(['', `Solar ${inr(z.dc)} MWp × ₹${S.a.solarCapex} Cr`, R.capS]);
+  if (R.capL) rows.push(['', 'Land purchase', R.capL]);
+  rows.push(['tot', 'Total capex', R.capex]);
+  $('pl').innerHTML = `<thead><tr><th>Line item</th><th class="r">₹ Cr</th></tr></thead><tbody>` + rows.map(([t,l,v]) =>
+    t === 'sub' ? `<tr class="subh"><td colspan="2">${l}</td></tr>` : `<tr class="${t}"><td>${l}</td><td class="r">${v<0?'−'+c(-v):c(v)}</td></tr>`).join('') + '</tbody>';
+}
+
+/* ---------- bar charts ---------- */
+function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(x))), f = x/p; return (f<1.5?1:f<3?2:f<7?5:10)*p; }
+function barChart(svg, vals, labels, o){
+  const W = Math.max(300, svg.parentNode.clientWidth), H = 240, m = {l:54, r:12, t:16, b:26}, iw = W-m.l-m.r, ih = H-m.t-m.b;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.innerHTML = '';
+  const all = vals.concat(o.line || []); let lo = Math.min(0, ...all), hi = Math.max(0, ...all); if (hi === lo) hi = lo + 1;
+  const st = niceStep((hi-lo)/4); lo = Math.floor(lo/st)*st; hi = Math.ceil(hi/st)*st;
+  const y = v => m.t + ih - (v-lo)/(hi-lo)*ih, bw = iw/vals.length;
+  for (let v=lo; v<=hi+1e-9; v+=st){ el('line', {x1:m.l, x2:m.l+iw, y1:y(v), y2:y(v), stroke: Math.abs(v)<1e-9 ? 'var(--faint)' : 'var(--line)'}, svg);
+    el('text', {x:m.l-8, y:y(v)+3.5, 'text-anchor':'end'}, svg).textContent = inr(v, st<1?1:0); }
+  vals.forEach((v,i) => { const x0 = m.l + i*bw + bw*.18, w = bw*.64;
+    const r = el('rect', {x:x0, y:Math.min(y(v), y(0)), width:w, height:Math.max(1, Math.abs(y(v)-y(0))), fill: v<0 ? 'var(--bad-soft)' : o.color, rx:2}, svg);
+    el('title', {}, r).textContent = `${labels[i]}: ₹${inr(v,1)} Cr`;
+    if (!o.every || i % o.every === 0) el('text', {x:x0+w/2, y:H-9, 'text-anchor':'middle'}, svg).textContent = labels[i]; });
+  if (o.line){ let d=''; o.line.forEach((v,i) => d += (i?' L':'M') + (m.l+i*bw+bw/2) + ',' + y(v)); el('path', {d, fill:'none', stroke:'var(--ink)', 'stroke-width':1.8}, svg);
+    const li = o.line.length-1; el('circle', {cx:m.l+li*bw+bw/2, cy:y(o.line[li]), r:3.5, fill:'var(--ink)'}, svg); }
+  if (o.mark != null){ const xm = m.l + (o.mark+.5)*bw; el('line', {x1:xm, x2:xm, y1:m.t, y2:m.t+ih, stroke:'var(--bess)', 'stroke-dasharray':'3 3'}, svg);
+    el('text', {x:xm+4, y:m.t+10, style:'fill:var(--bess)'}, svg).textContent = 'payback'; }
+}
+function renderMonth(R){ const v = R.month.map(x => x/CR); barChart($('monthChart'), v, MON, {color:'var(--bess)'});
+  const b = v.indexOf(Math.max(...v)), wI = v.indexOf(Math.min(...v));
+  $('monthNote').textContent = `${R.sc.src==='solar' ? 'Evening BESS sales net of IEX fees' : 'Sales minus purchases and CTU charges'} · best ${MON[b]}, weakest ${MON[wI]}`; }
+function renderCF(R){ const v = R.cf.map(x => x/CR); let s = 0; const c = v.map(x => s += x);
+  barChart($('cfChart'), v, v.map((_,i) => String(i)), {color:'var(--bess)', line:c, every:5, mark: R.pb!=null ? Math.ceil(R.pb) : null});
+  $('cfNote').textContent = `Year 0 is capex of ${cr(R.capex)} · the line is the cumulative position`; }
+
+/* ---------- isometric scene ---------- */
+const SC = 3.0, iso = (x,y,z=0) => [(x-y)*0.866*SC, (x+y)*0.5*SC - z*SC];
+let BB; const SCN = {showLoss:true}; let sceneKey = '';
+function pts(a){ return a.map(p => { const q = iso(...p); BB[0]=Math.min(BB[0],q[0]); BB[1]=Math.min(BB[1],q[1]); BB[2]=Math.max(BB[2],q[0]); BB[3]=Math.max(BB[3],q[1]); return q[0].toFixed(1)+','+q[1].toFixed(1); }).join(' '); }
+const ptsNB = a => a.map(p => { const q = iso(...p); return q[0].toFixed(1)+','+q[1].toFixed(1); }).join(' ');
+const poly = (p, cls, g) => el('polygon', {points:pts(p), class:cls}, g);
+function box(x,y,z,w,d,h,c,g){ const gg = el('g', {}, g);
+  poly([[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]], c+'-r', gg); poly([[x,y+d,z],[x+w,y+d,z],[x+w,y+d,z+h],[x,y+d,z+h]], c+'-l', gg);
+  poly([[x,y,z+h],[x+w,y,z+h],[x+w,y+d,z+h],[x,y+d,z+h]], c+'-t', gg); return gg; }
+const pathD = l => l.map((p,i) => { const q = iso(...p); return (i?'L':'M')+q[0].toFixed(1)+','+q[1].toFixed(1); }).join(' ');
+function label(x,y,z,t,s,g){ const q = iso(x,y,z); el('text', {x:q[0], y:q[1], 'text-anchor':'middle'}, g).textContent = t;
+  if (s) el('text', {x:q[0], y:q[1]+14, 'text-anchor':'middle', class:'sub'}, g).textContent = s; }
+const VB0 = [-350, -52, 700, 458];
+const ZV = {vb:[...VB0], target:[...VB0], raf:0};
+const GZ0 = 0.25, GZH = 2.4; // container gauge: base height and span
+function buildScene(z){
+  const solar = S.src === 'solar', n = Math.max(4, Math.min(15, Math.round(z.name/125)));
+  const quads = solar ? Math.max(1, Math.min(4, Math.round(z.ac/z.P*4 + 0.4))) : 0;
+  const key = [S.plant, S.dur, S.src, n, quads, Math.round(z.ac), z.P, S.a.dod].join('|'); if (key === sceneKey) return; sceneKey = key;
+  const svg = $('scene'); svg.innerHTML = ''; BB = [1e9,1e9,-1e9,-1e9];
+  const defs = el('defs', {}, svg), pat = el('pattern', {id:'hatch', width:3, height:3, patternUnits:'userSpaceOnUse', patternTransform:'rotate(45)'}, defs);
+  el('rect', {width:3, height:3, style:'fill:var(--card)'}, pat); el('line', {x1:0, y1:0, x2:0, y2:3, style:'stroke:var(--ink);stroke-width:1.3'}, pat);
+  const root = el('g', {}, svg);
+  box(0,0,-3,120,120,3,'gnd',root);
+  poly([[47,2,.02],[73,2,.02],[73,118,.02],[47,118,.02]], 'road', root); poly([[2,47,.02],[118,47,.02],[118,73,.02],[2,73,.02]], 'road', root);
+  poly([[49,49,.05],[71,49,.05],[71,71,.05],[49,71,.05]], 'pad', root); poly([[80,50,.05],[114,50,.05],[114,70,.05],[80,70,.05]], 'pad', root);
+  const cab = el('g', {}, root), fl = el('g', {}, root);
+  const qs = [[4,4],[4,76],[76,4],[76,76]].slice(0, quads);
+  const P_ = {ex: [[71,60,.4],[104,60,.4],[104,60,9],[128,60,21],[152,60,20]]};
+  if (qs.some(q => q[1]===4)) P_.fN = [[60,4,.4],[60,49,.4]];
+  if (qs.some(q => q[1]===76)) P_.fS = [[60,116,.4],[60,71,.4]];
+  if (qs.some(q => q[0]===4)) P_.fW = [[4,60,.4],[49,60,.4]];
+  SCN.flows = {}; for (const k in P_){ el('path', {d:pathD(P_[k]), class:'cable'}, cab); SCN.flows[k] = el('path', {d:pathD(P_[k]), class:'flow'}, fl); }
+  const pvG = el('g', {}, root), sunG = el('g', {opacity:0}, root); SCN.sun = sunG; const items = [];
+  for (const [qx,qy] of qs) for (let yy = qy+1; yy < qy+40; yy += 4.4) for (let t=0; t<3; t++){ const xa = qx + t*13.6, xb = xa+12.8;
+    items.push([xa+yy, [[xa,yy,2.9],[xb,yy,2.9],[xb,yy+2.8,1.1],[xa,yy+2.8,1.1]]]); }
+  items.sort((a,b) => a[0]-b[0]).forEach(([_,p]) => { poly(p, 'pv', pvG); poly(p, 'pv-sun', sunG); });
+  // BESS containers: state tint on the roof, SoC gauge with hatched DoD reserve on the long face
+  const bG = el('g', {}, root), cols = n > 10 ? 3 : 2, cw = cols === 3 ? 6.3 : 9.2, rows = Math.ceil(n/cols), y0 = 60 - rows*3.3/2, cs = [];
+  for (let i=0;i<n;i++) cs.push([50 + (i%cols)*(cw+0.8), y0 + Math.floor(i/cols)*3.3]);
+  const res = (1 - S.a.dod/100)/2; SCN.gauges = [];
+  cs.sort((a,b) => (a[0]+a[1])-(b[0]+b[1])).forEach(([cx,cy]) => { const g = box(cx, cy, 0, cw, 2.5, 2.9, 'cont', bG);
+    poly([[cx,cy,2.91],[cx+cw,cy,2.91],[cx+cw,cy+2.5,2.91],[cx,cy+2.5,2.91]], 'c-tint', g);
+    poly([[cx+cw+.01,cy+.3,1.9],[cx+cw+.01,cy+2.2,1.9],[cx+cw+.01,cy+2.2,2.4],[cx+cw+.01,cy+.3,2.4]], 'led', g);
+    const Y = cy+2.51, x0 = cx+.5, x1 = cx+cw-.5, q = (za, zb) => [[x0,Y,za],[x1,Y,za],[x1,Y,zb],[x0,Y,zb]];
+    poly(q(GZ0, GZ0+GZH), 'g-bg', g);
+    const f = poly(q(GZ0, GZ0+.01), 'g-fill', g);
+    poly(q(GZ0, GZ0+GZH*res), 'g-res', g); poly(q(GZ0+GZH*(1-res), GZ0+GZH), 'g-res', g);
+    SCN.gauges.push({el:f, x0, x1, Y}); });
+  box(67, 67.5, 0, 3.3, 3.3, 3.2, 'tx', bG);
+  const sG = el('g', {}, root); box(86,54,0,6,4.5,4.6,'tx',sG); box(95,54,0,6,4.5,4.6,'tx',sG); box(86,62,0,6,4.5,4.6,'tx',sG);
+  for (const py of [53,67]) el('path', {d:pathD([[104,py,0],[104,py,10]]), class:'wire', 'stroke-width':1.6}, sG);
+  el('path', {d:pathD([[104,53,10],[104,67,10]]), class:'wire', 'stroke-width':1.6}, sG);
+  const tw = el('g', {}, root);
+  [[125.5,57.5],[130.5,57.5],[130.5,62.5],[125.5,62.5]].forEach(([x,y]) => el('path', {d:pathD([[x,y,0],[128+(x-128)*.25,60+(y-60)*.25,23]]), class:'wire', 'stroke-width':1.3}, tw));
+  for (const zz of [6,12,18]){ const f = 1 - zz/23*.75; el('path', {d:pathD([[128-2.5*f,60-2.5*f,zz],[128+2.5*f,60-2.5*f,zz],[128+2.5*f,60+2.5*f,zz],[128-2.5*f,60+2.5*f,zz],[128-2.5*f,60-2.5*f,zz]]), class:'wire'}, tw); }
+  el('path', {d:pathD([[128,55,20],[128,65,20]]), class:'wire', 'stroke-width':1.6}, tw);
+  // night veil over the ground slab only
+  SCN.night = el('polygon', {points:ptsNB([[0,0,0],[120,0,0],[120,0,-3],[120,120,-3],[0,120,-3],[0,120,0]]), fill:'var(--night)', opacity:0, 'pointer-events':'none'}, svg);
+  const lab = el('g', {}, svg);
+  if (quads) label(24, 24, 7, 'Solar PV', `${inr(z.ac)} MWac · ${inr(z.dc)} MWp`, lab); else label(24, 24, 4, 'No solar in this case', 'battery charges from IEX', lab);
+  label(60, 60, 12, 'BESS', `${inr(z.P)} MW · ${inr(z.name)} MWh`, lab);
+  label(97, 60, 16, 'CTU pooling', `${inr(z.P)} MW night connectivity`, lab);
+  label(150, 60, 30, 'ISTS → IEX', 'DAM · GDAM · RTM', lab);
+  // anchors for loss callouts
+  const front = cs.reduce((a,b) => (b[1] > a[1] || (b[1] === a[1] && b[0] < a[0])) ? b : a), back = cs[0], mid = cs[Math.floor(cs.length/2)];
+  SCN.anc = { dod: iso(front[0]+cw/2, front[1]+2.51, GZ0+GZH*.5), fade: iso(back[0]+cw/2, back[1], 2.9), hvac: iso(mid[0]+cw*.3, mid[1]+1.2, 2.9),
+    pcs: iso(68.6, 69.1, 3.2), sub: iso(89, 56.2, 4.6), ists: iso(128, 60, 21), sold: iso(152, 60, 20), pvaux: iso(24, 24, 3) };
+  SCN.coG = el('g', {}, svg);
+  svg.setAttribute('viewBox', ZV.vb.join(' '));
+}
+function drawCallouts(R){
+  const g = SCN.coG; if (!g) return; g.innerHTML = ''; g.style.display = SCN.showLoss ? '' : 'none';
+  const z = R.z, A = S.a, solar = R.sc.src === 'solar', E = z.name, dod = A.dod/100, res = (1-dod)/2*100, f1 = v => inr(v, 1);
+  const stored = z.stored, need = z.needSolar, X = z.needGrid;
+  const lineOut = stored*z.eta*(1-A.bessAux/100)*A.lineLoss/100, lineIn = X*(1-A.istsLoss/100)*A.lineLoss/100;
+  const L = [
+    {t:`DoD reserve · ${A.dod}% usable`, v:`−${f1(E*(1-dod))} MWh · ${res.toFixed(0)}% floor, ${(100-res).toFixed(0)}% ceiling`, a:SCN.anc.dod, k:'dod'},
+    {t:`Capacity fade · ${A.deg}%/yr`, v:`Year 1 avg −${(A.deg/2).toFixed(2)}% · −${f1(E*dod*(1-z.soh1))} MWh`, a:SCN.anc.fade},
+    {t:`HVAC auxiliary · ${A.bessAux}% of discharge`, v:`−${f1(stored*z.eta*A.bessAux/100)} MWh per cycle`, a:SCN.anc.hvac},
+    {t:`PCS conversion · η ${(z.eta*100).toFixed(1)}% each way`, v:`Charge −${f1(need-stored)} · discharge −${f1(stored*(1-z.eta))} MWh`, a:SCN.anc.pcs},
+  ];
+  const Rt = [
+    {t:`Trafo + line to CTU · ${A.lineLoss}%`, v: solar ? `Export −${f1(lineOut)} MWh per cycle` : `Export −${f1(lineOut)} · import −${f1(lineIn)} MWh`, a:SCN.anc.sub},
+    solar ? {t:`Solar auxiliary · ${z.aux.toFixed(2)} MW`, v:`−${f1(z.aux*24)} MWh a day, all hours`, a:SCN.anc.pvaux, k:'solar'}
+          : {t:`ISTS loss on drawal · ${A.istsLoss}%`, v:`−${f1(X*A.istsLoss/100)} MWh of ${f1(X)} bought`, a:SCN.anc.ists},
+    {t:`Sold at CTU meter · ${inr(z.sell)} MWh`, v:`${inr(z.P)} MW × ${z.h} h · ${(z.sell/(solar ? need : X)*100).toFixed(1)}% of ${solar ? 'solar in' : 'IEX bought'}`, a:SCN.anc.sold, k:'sold'},
+  ];
+  const W = 234, H = 44, slotsL = [[-347,-44],[-347,8],[-347,300],[-347,352]], slotsR = [[112,-44],[112,8],[112,300]];
+  const drawBox = (it, [x,y], left) => {
+    const ex = left ? x+W : x, ey = y+H/2;
+    el('path', {d:`M${ex},${ey} L${it.a[0].toFixed(1)},${it.a[1].toFixed(1)}`, class:'co-ln'}, g);
+    el('circle', {cx:it.a[0], cy:it.a[1], r:2.8, class:'co-dot'}, g);
+    el('rect', {x, y, width:W, height:H, rx:7, class:'co-box' + (it.k==='sold' ? ' strong' : '')}, g);
+    el('rect', {x:x+1, y:y+8, width:3, height:H-16, rx:1.5, style:`fill:${it.k==='sold' ? 'var(--bess)' : it.k==='solar' ? 'var(--solar)' : it.k==='dod' ? 'var(--ink)' : 'var(--bad)'}`}, g);
+    el('text', {x:x+12, y:y+18, class:'co-t'}, g).textContent = it.t;
+    el('text', {x:x+12, y:y+34, class:'co-v'}, g).textContent = it.v;
+  };
+  L.forEach((it,i) => drawBox(it, slotsL[i], true)); Rt.forEach((it,i) => drawBox(it, slotsR[i], false));
+}
+let SOC = null;
+function sceneRefresh(R){
+  buildScene(R.z);
+  const z = R.z, sc = R.sc, solar = sc.src === 'solar', A = S.a, w = S.win[z.h];
+  const us = unitSolar(sc.pk), sol = new Float64Array(96); for (let d=0; d<N; d++) for (let b=0;b<96;b++) sol[b] += us[MONTH[d]][b]*z.ac/N;
+  const inD = new Uint8Array(96), inC = new Uint8Array(96); winBlocks(w.d, z.nb).forEach(b => inD[b]=1); if (!solar) winBlocks(w.c, z.nc).forEach(b => inC[b]=1);
+  const soc = new Float64Array(96), st = new Uint8Array(96), min = (1-A.dod/100)/2; let e = 0; const start = (w.d + z.nb) % 96;
+  for (let pass=0; pass<2; pass++) for (let i=0;i<96;i++){ const b = (start+i)%96; let s = 0;
+    if (inD[b]){ e = Math.max(0, e - z.stored/z.nb); s = 3; }
+    else if (!solar && inC[b]){ e = Math.min(z.stored, e + z.stored/z.nc); s = 2; }
+    else if (solar && sol[b] > 1 && e < z.stored - 1e-6){ e = Math.min(z.stored, e + sol[b]*.25*z.eta); s = 1; }
+    if (pass) { soc[b] = min + e/z.name; st[b] = s; } }
+  SOC = {soc, st, sol, z, solar};
+  // HTML gauge: DoD reserve bands
+  const r = (1 - A.dod/100)/2*100;
+  $('gTop').style.height = r + '%'; $('gBot').style.height = r + '%';
+  $('glTop').style.top = `calc(6px + ${r}% * 2.3)`; $('glTop').textContent = `${(100-r).toFixed(0)}% ceiling`;
+  $('glBot').style.top = `calc(6px + ${(100-r)}% * 2.3)`; $('glBot').textContent = `${r.toFixed(0)}% floor`;
+  $('gUse').textContent = `Usable ${A.dod}% = ${inr(z.name*A.dod/100)} of ${inr(z.name)} MWh`;
+  drawCallouts(R); drawTimeline(); setTime(T);
+}
+let T = 18.5, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, lastTs = 0;
+const STATE = {3:['Discharging to IEX','dis','var(--bess)'], 2:['Charging from IEX','ch-grid','var(--grid)'], 1:['Charging from own solar','ch-solar','var(--solar)']};
+function setTime(t){
+  T = (t % 24 + 24) % 24; if (!SOC) return;
+  const b = Math.floor(T*4) % 96, {soc, st, sol, z, solar} = SOC;
+  $('clockT').textContent = hhmm(b);
+  const sunLvl = solar ? sol[b]/Math.max(1, z.ac) : us0(b);
+  SCN.sun.setAttribute('opacity', (Math.min(1, sunLvl)*0.85).toFixed(2));
+  SCN.night.setAttribute('opacity', ((1 - Math.min(1, sunLvl*3))*0.3).toFixed(2));
+  const F = SCN.flows, set = (k, on, col, rev) => { if (!F[k]) return; F[k].classList.toggle('on', on); F[k].classList.toggle('rev', !!rev); F[k].style.stroke = col; };
+  const s = st[b], solarOn = solar && sol[b] > 1;
+  ['fN','fW','fS'].forEach(k => set(k, solarOn, 'var(--solar)'));
+  if (s === 2) set('ex', true, 'var(--grid)', true); else if (s === 3) set('ex', true, 'var(--bess)'); else set('ex', solarOn && s !== 1, 'var(--solar)');
+  const [txt, cls, col] = STATE[s] ? [s===2 ? `Charging from IEX ${CUR.sc.buy}` : STATE[s][0], STATE[s][1], STATE[s][2]] : (solarOn ? ['Battery full · selling surplus solar','exp','var(--bess)'] : ['Idle','', 'var(--bess)']);
+  const chip = $('stateChip'); chip.textContent = txt; chip.className = 'chip ' + cls;
+  const sv = $('scene'); sv.style.setProperty('--led', s ? col : 'var(--faint)'); sv.style.setProperty('--led-o', s ? '1' : '.3'); sv.style.setProperty('--tint-o', s ? '.5' : '0');
+  sv.style.setProperty('--gfill', col); sv.style.setProperty('--gfill-o', s ? '1' : '.55');
+  const lv = soc[b];
+  for (const gg of SCN.gauges) gg.el.setAttribute('points', ptsNB([[gg.x0,gg.Y,GZ0],[gg.x1,gg.Y,GZ0],[gg.x1,gg.Y,GZ0+GZH*lv],[gg.x0,gg.Y,GZ0+GZH*lv]]));
+  const gf = $('gFill'); gf.style.height = (lv*100).toFixed(1) + '%'; gf.style.background = col; gf.style.opacity = s ? 1 : .55;
+  const gn = $('glNow'); gn.style.top = `calc(6px + ${(100 - lv*100)}% * 2.3)`; gn.textContent = `◀ ${(lv*100).toFixed(0)}%`;
+  const r = (1 - S.a.dod/100)/2*100;
+  $('glTop').style.visibility = Math.abs(lv*100 - (100-r)) < 7 ? 'hidden' : ''; $('glBot').style.visibility = Math.abs(lv*100 - r) < 7 ? 'hidden' : '';
+  $('gMWh').textContent = `${inr(lv*z.name)} MWh stored`;
+  if (SCN.ph){ const x = TLX(T*4); SCN.ph.setAttribute('x1', x); SCN.ph.setAttribute('x2', x); }
+}
+/* zoom & pan */
+function clampVB(v){ const [x0,y0,w0,h0] = VB0; let [x,y,w,h] = v; w = Math.min(w, w0); h = Math.min(h, h0);
+  return [Math.max(x0, Math.min(x0+w0-w, x)), Math.max(y0, Math.min(y0+h0-h, y)), w, h]; }
+function animZoom(){ if (ZV.raf) return;
+  const step = () => { let d = 0; for (let i=0;i<4;i++){ const df = ZV.target[i]-ZV.vb[i]; ZV.vb[i] += df*0.22; d = Math.max(d, Math.abs(df)); }
+    if (d < 0.05) ZV.vb = [...ZV.target]; $('scene').setAttribute('viewBox', ZV.vb.map(v => v.toFixed(2)).join(' '));
+    $('zFit').disabled = ZV.target[2] >= VB0[2] - 0.5; ZV.raf = d < 0.05 ? 0 : requestAnimationFrame(step); };
+  ZV.raf = requestAnimationFrame(step); }
+function zoomAt(fx, fy, factor){ const t = ZV.target, k = VB0[2]/t[2], nk = Math.max(1, Math.min(6, k*factor)), f = k/nk;
+  const px = t[0] + fx*t[2], py = t[1] + fy*t[3];
+  ZV.target = clampVB([px - (px - t[0])*f, py - (py - t[1])*f, t[2]*f, t[3]*f]); animZoom(); }
+(function(){ const svg = $('scene'); let pan = null;
+  const frac = e => { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    return [(p.x - ZV.vb[0])/ZV.vb[2], (p.y - ZV.vb[1])/ZV.vb[3]]; };
+  svg.addEventListener('wheel', e => { e.preventDefault(); const [fx, fy] = frac(e); zoomAt(fx, fy, Math.exp(-e.deltaY*0.0018)); }, {passive:false});
+  svg.addEventListener('dblclick', e => { const [fx, fy] = frac(e); zoomAt(fx, fy, 1.8); });
+  svg.addEventListener('pointerdown', e => { if (ZV.target[2] >= VB0[2] - 0.5 || e.button !== 0) return;
+    const rc = svg.getBoundingClientRect(); pan = {x:e.clientX, y:e.clientY, t:[...ZV.target], s:Math.max(ZV.vb[2]/rc.width, ZV.vb[3]/rc.height)};
+    svg.setPointerCapture(e.pointerId); svg.classList.add('panning'); });
+  svg.addEventListener('pointermove', e => { if (!pan) return;
+    ZV.target = clampVB([pan.t[0] - (e.clientX-pan.x)*pan.s, pan.t[1] - (e.clientY-pan.y)*pan.s, pan.t[2], pan.t[3]]); ZV.vb = [...ZV.target];
+    svg.setAttribute('viewBox', ZV.vb.map(v => v.toFixed(2)).join(' ')); });
+  const end = () => { pan = null; svg.classList.remove('panning'); }; svg.addEventListener('pointerup', end); svg.addEventListener('pointercancel', end);
+  $('zIn').addEventListener('click', () => zoomAt(.5, .5, 1.4)); $('zOut').addEventListener('click', () => zoomAt(.5, .5, 1/1.4));
+  $('zFit').addEventListener('click', () => { ZV.target = [...VB0]; animZoom(); });
+  $('lossBtn').addEventListener('click', () => { SCN.showLoss = !SCN.showLoss; $('lossBtn').setAttribute('aria-pressed', SCN.showLoss); if (SCN.coG) SCN.coG.style.display = SCN.showLoss ? '' : 'none'; });
+})();
+function us0(b){ const u = unitSolar(S.plant); let s = 0; for (let m=0;m<12;m++) s += u[m][b]; return s/12; }
+let TLX = b => b;
+function drawTimeline(){
+  const svg = $('tl'), W = Math.max(300, svg.parentNode.clientWidth - 36), H = 34; svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = '';
+  TLX = b => 4 + b/96*(W-8);
+  el('rect', {x:4, y:8, width:W-8, height:10, rx:5, fill:'var(--card-2)', stroke:'var(--line)'}, svg);
+  const {st} = SOC, col = {1:'var(--solar)', 2:'var(--grid)', 3:'var(--bess)'};
+  for (let b=0;b<96;b++) if (st[b]) el('rect', {x:TLX(b), y:8, width:TLX(b+1)-TLX(b)+.5, height:10, fill:col[st[b]]}, svg);
+  for (let hh=0; hh<=24; hh+=6) el('text', {x:TLX(hh*4), y:31, 'text-anchor': hh===0?'start':hh===24?'end':'middle'}, svg).textContent = String(hh).padStart(2,'0')+':00';
+  SCN.ph = el('line', {x1:TLX(T*4), x2:TLX(T*4), y1:3, y2:23, stroke:'var(--ink)', 'stroke-width':2}, svg);
+}
+(function(){ const svg = $('tl'); let down = false;
+  const go = e => { const rc = svg.getBoundingClientRect(); setTime(Math.max(0, Math.min(95.9, (e.clientX - rc.left - 4)/(rc.width-8)*96))/4); };
+  svg.addEventListener('pointerdown', e => { down = true; svg.setPointerCapture(e.pointerId); go(e); });
+  svg.addEventListener('pointermove', e => { if (down) go(e); }); svg.addEventListener('pointerup', () => down = false); })();
+function loop(ts){ if (playing && lastTs) setTime(T + (ts-lastTs)/1000*(24/20)); lastTs = ts; requestAnimationFrame(loop); }
+function setPlayIcon(){ $('playBtn').innerHTML = playing
+  ? '<svg width="14" height="14" viewBox="0 0 14 14"><rect x="3" y="2" width="3" height="10" rx="1" fill="currentColor"/><rect x="8" y="2" width="3" height="10" rx="1" fill="currentColor"/></svg>'
+  : '<svg width="14" height="14" viewBox="0 0 14 14"><path d="M4 2 L12 7 L4 12 Z" fill="currentColor"/></svg>';
+  $('playBtn').setAttribute('aria-label', playing ? 'Pause day animation' : 'Play day animation'); }
+
+/* ---------- wiring ---------- */
+/* ================= Tab 2: two cycles a day · CATL 12,000-cycle · IEX only ================= */
+let VIEW = 1;
+const T2 = {dur:4, tx:'stoa', buy:'DAM', sell:'DAM', win:{}, key:''};
+const g2 = id => parseFloat($(id).value) || 0;
+function readT2(){ return {capex:g2('t2_capex'), life:Math.max(1,g2('t2_cycles')), eol:g2('t2_eol'), cal:g2('t2_cal'), dod:g2('t2_dod'), rte:g2('t2_rte'), aux:g2('t2_aux'), avail:g2('t2_avail'), rep:g2('t2_rep')}; }
+function size2(h, cpd, C){
+  const p = PLANTS[S.plant], A = S.a, eta = Math.sqrt(C.rte/100), fpc = (1 - C.eol/100)/C.life, cpy = N*C.avail/100*cpd;
+  const soh1 = 1 - fpc*cpy/2 - C.cal/100/2, kD = eta*(1-C.aux/100)*(1-A.lineLoss/100);
+  const sell = p.conn*h, stored = sell/kD, name = stored/(C.dod/100)/soh1;
+  const needGrid = stored/eta/(1-A.lineLoss/100)/(1-A.istsLoss/100), nb = h*4;
+  const nc = Math.min(48-nb, Math.ceil(needGrid/(p.conn*.25) - 1e-9));
+  return {P:p.conn, h, nb, nc, sell, stored, name, needGrid, eta, kD, soh1, fpc, cpy, cpd};
+}
+function winSums(mkt, len){ const a = DATA[mkt], W = new Float64Array(96);
+  for (let s=0;s<96;s++){ let t = 0; for (let d=0; d<N; d++){ const r = a[d]; for (let i=0;i<len;i++) t += r[(s+i)%96]; } W[s] = t/len; } return W; }
+// per-cycle windows [{c,d}] → full 25-year project with cycle-based fade and replacement
+function run2(cpd, wins, C, WB, WS){
+  const A = S.a, z = size2(T2.dur, cpd, C), life = Math.max(1, Math.round(A.life)), av = C.avail/100;
+  let sB = 0, sS = 0; for (const w of wins){ sB += WB[w.c]; sS += WS[w.d]; }
+  const y1 = {buyMWh:z.needGrid*N*av*cpd, buyCost:z.needGrid*sB*av, sellMWh:z.sell*N*av*cpd, sellRev:z.sell*sS*av};
+  const capB = z.name*C.capex*CR, capex = capB, rateY = z.fpc*z.cpy + C.cal/100;
+  const D = Math.min(0.95, Math.max(0, A.debtPct/100)), wacc = (1-D)*A.ke/100 + D*A.kd/100*(1-A.tax/100);
+  const debt = capex*D, tenor = Math.max(1, Math.round(A.tenor)), prin = debt/tenor; let bal = debt;
+  const cf = [-capex], pre = [-capex], ecf = [-(capex-debt)], dscr = [], soh = [], reps = [], rows = [];
+  let a = 0;
+  for (let y=1; y<=life; y++){
+    const sMid = Math.max(0.3, 1 - rateY*(a+0.5)), sEnd = 1 - rateY*(a+1), bf = sMid/z.soh1;
+    soh.push(sMid);
+    const pe = Math.pow(1+A.esc/100, y-1), oe = Math.pow(1+A.omEsc/100, y-1);
+    const rev = y1.sellRev*bf*pe, energy = y1.buyCost*bf*pe;
+    const ctu = T2.tx === 'stoa' ? y1.buyMWh*bf*A.stoa : z.P*A.lta*1e5*12;
+    const fees = (y1.buyMWh + y1.sellMWh)*bf*A.fee, om = capB*A.omBess/100*oe;
+    let rep = 0; if (sEnd < C.eol/100 && y < life){ rep = capB*C.rep/100; reps.push(y); a = 0; } else a++;
+    const eqc = A.eqOn && y <= Math.round(A.eqYears) ? A.eqCost*CR : 0;
+    const ebitda = rev - energy - ctu - fees - om - eqc;
+    const tax = Math.max(0, ebitda - capex/life - rep)*A.tax/100;
+    cf.push(ebitda - rep - tax); pre.push(ebitda - rep);
+    const intr = bal*A.kd/100, rp = y <= tenor ? Math.min(bal, prin) : 0, taxE = Math.max(0, ebitda - capex/life - rep - intr)*A.tax/100;
+    ecf.push(ebitda - rep - taxE - intr - rp); if (intr + rp > 0) dscr.push((ebitda + eqc - taxE)/(intr + rp)); bal -= rp;
+    rows.push({y, rev, energy, ctu, fees, om, eqc, rep, ebitda});
+  }
+  const npv = cf.reduce((s,c,i) => s + c/Math.pow(1+wacc,i), 0);
+  const yEol = (1 - C.eol/100)/rateY;
+  return {z, y1, rows, cf, ecf, soh, reps, capex, capB, npv, wacc, yEol, irr:irr(cf), irrPre:irr(pre), eirr:irr(ecf), pb:payback(cf), dscrMin: dscr.length ? Math.min(...dscr) : null, wins};
+}
+function best1(WB, WS, z){ let b = -Infinity, bc = 0, bd = 0;
+  for (let c=0;c<96;c++) for (let d=0;d<96;d++){ if (overlap(c, z.nc, d, z.nb)) continue; const v = z.sell*WS[d] - z.needGrid*WB[c]; if (v > b){ b = v; bc = c; bd = d; } }
+  return [{c:bc, d:bd}]; }
+function best2(WB, WS, z){ const nc = z.nc, nb = z.nb; let b = -Infinity, out = null;
+  const val = (c, d) => z.sell*WS[d%96] - z.needGrid*WB[c%96];
+  for (let c1=0;c1<96;c1++) for (let d1=c1+nc; d1+nb+nc+nb <= c1+96; d1++){ const v1 = val(c1,d1);
+    for (let c2=d1+nb; c2+nc+nb <= c1+96; c2++) for (let d2=c2+nc; d2+nb <= c1+96; d2++){ const v = v1 + val(c2,d2); if (v > b){ b = v; out = [{c:c1%96, d:d1%96}, {c:c2%96, d:d2%96}]; } } }
+  return out; }
+function order2(w, z){ // valid if C1 → D1 → C2 → D2 in clock order without overlap
+  const rel = x => ((x - w[0].c) % 96 + 96) % 96, s = [[rel(w[0].c), z.nc], [rel(w[0].d), z.nb], [rel(w[1].c), z.nc], [rel(w[1].d), z.nb]];
+  for (let i=0;i<3;i++) if (s[i][0] + s[i][1] > s[i+1][0]) return false;
+  return s[3][0] + s[3][1] <= 96; }
+function update2(){
+  if (VIEW !== 2) return;
+  readA(); const C = readT2(), pl = PLANTS[S.plant], h = T2.dur;
+  renderTabs();
+  setSeg('t2Dur', String(h)); setSeg('t2Tx', T2.tx); $('t2Buy').value = T2.buy; $('t2Sell').value = T2.sell;
+  const z1 = size2(h, 1, C), z2 = size2(h, 2, C);
+  const WB = winSums(T2.buy, z2.nc), WS = winSums(T2.sell, z2.nb), WB1 = z1.nc === z2.nc ? WB : winSums(T2.buy, z1.nc);
+  const key = [S.plant, h, T2.buy, T2.sell, z2.nc, z2.nb, pl.conn].join('|');
+  if (T2.key !== key || !T2.win[h]){ T2.win[h] = best2(WB, WS, z2); T2.key = key; }
+  const w2 = T2.win[h], w1 = best1(WB1, WS, z1);
+  const R1 = run2(1, w1, C, WB1, WS), R2 = run2(2, w2, C, WB, WS);
+  if (S.a.eqOn){ S.a.eqOn = false; const R0 = run2(2, w2, C, WB, WS); S.a.eqOn = true; eqOutText(R2.irr, R2.eirr, R0); } else eqOutText(R2.irr, R2.eirr, null);
+  // sliders
+  [['t2c1', w2[0].c, z2.nc], ['t2d1', w2[0].d, z2.nb], ['t2c2', w2[1].c, z2.nc], ['t2d2', w2[1].d, z2.nb]].forEach(([id, s, n]) => { $(id).value = s; $(id+'T').textContent = `${hhmm(s)} → ${hhmm(s+n)}`; });
+  $('t2Warn').textContent = order2(w2, z2) ? '' : 'Windows are out of order or overlap. Each charge must finish before its discharge, in the order charge 1 → discharge 1 → charge 2 → discharge 2 around the clock.';
+  $('t2Title').textContent = `${pl.code} · ${pl.loc} · two cycles a day`;
+  $('t2Sub').textContent = `CATL ${inr(C.life)}-cycle BESS · ${inr(z2.P)} MW / ${inr(z2.name)} MWh · IEX only (buy ${T2.buy}, sell ${T2.sell}, ${T2.tx==='stoa'?'T-GNA':'GNA/LTA'}) · no solar`;
+  // comparison cards
+  const pf = v => (v*100).toFixed(1) + '%', d = (a, b) => a == null || b == null ? '—' : ((a-b)*100 >= 0 ? '+' : '−') + Math.abs((a-b)*100).toFixed(1) + ' pts';
+  const card = (R, t, prim) => `<div class="card hero ${prim ? 'primary' : ''}">
+      <div class="row"><span class="lbl">${t}</span><span class="pill ${R.irr != null && R.irr >= R.wacc ? 'good' : 'bad'}">${R.irr != null && R.irr >= R.wacc ? 'Above' : 'Below'} WACC ${pf(R.wacc)}</span></div>
+      <span class="v">${pct(R.irr)}</span>
+      <span class="s">Project IRR · equity <b>${pct(R.eirr)}</b> · NPV ${R.npv<0?'−':''}₹${inr(Math.abs(R.npv)/CR)} Cr</span>
+      <span class="s">${inr(R.z.cpy)} cycles/yr · end of life in ${R.yEol.toFixed(1)} yrs · ${R.reps.length ? 'cells replaced in year ' + R.reps.join(', ') : 'no replacement in project life'}</span>
+      <span class="s">${inr(R.z.name)} MWh nameplate · capex ${cr(R.capex)} · min DSCR ${R.dscrMin == null ? '—' : R.dscrMin.toFixed(2) + '×'}</span></div>`;
+  $('t2Cmp').innerHTML = card(R1, '1 cycle a day', false) + card(R2, '2 cycles a day', true) +
+    `<div class="card hero"><span class="lbl">Second cycle adds</span><span class="v" style="color:${R2.irr != null && R1.irr != null && R2.irr >= R1.irr ? 'var(--bess)' : 'var(--bad)'}">${d(R2.irr, R1.irr)}</span>
+      <span class="s">Equity IRR ${d(R2.eirr, R1.eirr)} · NPV ${R2.npv-R1.npv<0?'−':'+'}₹${inr(Math.abs(R2.npv-R1.npv)/CR)} Cr</span>
+      <span class="s">Year-1 EBITDA ${cr(R1.rows[0].ebitda,1)} → ${cr(R2.rows[0].ebitda,1)}</span></div>`;
+  // note
+  const sp = R => ({s:R.y1.sellRev/R.y1.sellMWh, b:R.y1.buyCost/R.y1.buyMWh});
+  const s1 = sp(R1), cyc2 = {s:(R2.y1.sellRev - R1.y1.sellRev*R2.z.name/R1.z.name), b:0};
+  const WSd2 = WS[w2[1].d]/N, WBc2 = WB[w2[1].c]/N, WSd1 = WS[w2[0].d]/N, WBc1 = WB[w2[0].c]/N;
+  const perMWh = (s, b) => s - b*z2.needGrid/z2.sell - (T2.tx==='stoa' ? S.a.stoa*z2.needGrid/z2.sell : 0) - S.a.fee*(1 + z2.needGrid/z2.sell);
+  const m1 = perMWh(WSd1, WBc1), m2 = perMWh(WSd2, WBc2);
+  const li = [];
+  li.push(`<b>Verdict.</b> Running two cycles a day gives <b>${pct(R2.irr)}</b> project IRR against <b>${pct(R1.irr)}</b> for one (${d(R2.irr, R1.irr)}), and equity IRR of ${pct(R2.eirr)} against ${pct(R1.eirr)}. ${R2.irr != null && R1.irr != null && R2.irr > R1.irr ? 'The second cycle pays for its extra wear.' : 'The second cycle does not pay for its extra wear.'}`);
+  const cy = [{w:w2[0], m:m1}, {w:w2[1], m:m2}].sort((a,b) => b.m - a.m), rs = v => (v < 0 ? '−₹' : '₹') + inr(Math.abs(v));
+  li.push(`<b>Why.</b> The main cycle (charge ${hhmm(cy[0].w.c)}, sell ${hhmm(cy[0].w.d)}) nets about ${rs(cy[0].m)} per MWh sold after losses${T2.tx==='stoa' ? ', T-GNA' : ''} and fees. The best extra cycle (charge ${hhmm(cy[1].w.c)}, sell ${hhmm(cy[1].w.d)}) nets ${rs(cy[1].m)}. ${cy[1].m < cy[0].m*0.5 ? 'The IEX curve has one deep midday valley and one evening peak. Once the midday valley is used, the only other spread (night to early morning) is too thin to cover the round-trip losses' + (T2.tx==='stoa' ? ' and T-GNA.' : '.') : ''}`);
+  li.push(`<b>Wear.</b> At ${inr(C.life)} rated cycles to ${C.eol}%, one cycle a day reaches end of life in ${R1.yEol.toFixed(1)} years and two cycles in ${R2.yEol.toFixed(1)} years. ${R2.reps.length ? `Two cycles need a cell replacement in year ${R2.reps.join(', ')} (${cr(R2.capB*C.rep/100)} at ${C.rep}% of capex).` : ''}`);
+  li.push(`<b>Transmission.</b> ${T2.tx === 'stoa' ? `T-GNA is charged on every MWh drawn (₹${S.a.stoa}/MWh), so it doubles with the second cycle: ${cr(R2.rows[0].ctu,1)} against ${cr(R1.rows[0].ctu,1)} in year 1.` : `GNA/LTA is a fixed ${cr(R2.rows[0].ctu,1)} a year, so a second cycle spreads it over twice the energy. That makes a second cycle more valuable under GNA than under T-GNA.`}`);
+  li.push(`<b>Caveats.</b> The windows use average prices, and back-to-back cycles within the day are assumed to be available every day. The morning discharge uses the same day's early-morning prices. The plant's bids are assumed not to move the clearing price.`);
+  $('t2Note').innerHTML = li.map(x => `<li>${x}</li>`).join('');
+  $('t2WinNote').textContent = `Each charge window lasts ${dur(z2.nc)} at up to ${inr(z2.needGrid/(z2.nc*.25))} MW so the battery fills within the ${inr(z2.P)} MW connectivity; each discharge lasts ${dur(z2.nb)} at ${inr(z2.P)} MW. The one-cycle case uses its own best windows: charge ${hhmm(w1[0].c)}, sell ${hhmm(w1[0].d)}.`;
+  drawPrice2(w2, z2); drawSoh2(R1, R2, C); drawCum2(R1, R2); table2(R1, R2);
+}
+function drawPrice2(w, z){
+  const svg = $('t2Price'), W = Math.max(320, svg.parentNode.clientWidth), H = 280, m = {l:50, r:16, t:30, b:28}, iw = W-m.l-m.r, ih = H-m.t-m.b;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.innerHTML = '';
+  const sA = avgOf(T2.sell), bA = avgOf(T2.buy), ymax = Math.ceil(Math.max(...sA, ...bA)/2000)*2000;
+  const x = b => m.l + b/96*iw, y = v => m.t + ih - v/ymax*ih;
+  for (let v=0; v<=ymax; v+=2000){ el('line', {x1:m.l, x2:m.l+iw, y1:y(v), y2:y(v), stroke:'var(--line)'}, svg); el('text', {x:m.l-8, y:y(v)+3.5, 'text-anchor':'end'}, svg).textContent = v ? '₹'+(v/1000)+'k' : '0'; }
+  for (let hh=0; hh<=24; hh+=3) el('text', {x:x(hh*4), y:H-8, 'text-anchor':'middle'}, svg).textContent = String(hh).padStart(2,'0')+':00';
+  const band = (s, n, fill, stroke, lab) => { const parts = s+n <= 96 ? [[s,s+n]] : [[s,96],[0,s+n-96]];
+    for (const [a,b] of parts){ el('rect', {x:x(a), y:m.t, width:x(b)-x(a), height:ih, fill}, svg); el('rect', {x:x(a), y:m.t-3, width:x(b)-x(a), height:3, fill:stroke}, svg); }
+    el('text', {x:Math.min(x(parts[0][0])+3, m.l+iw-30), y:m.t-8, style:`fill:${stroke};font-weight:500`}, svg).textContent = lab; };
+  band(w[0].c, z.nc, 'var(--grid-soft)', 'var(--grid)', 'C1'); band(w[0].d, z.nb, 'var(--bess-soft)', 'var(--bess)', 'D1');
+  band(w[1].c, z.nc, 'var(--grid-soft)', 'var(--grid)', 'C2'); band(w[1].d, z.nb, 'var(--bess-soft)', 'var(--bess)', 'D2');
+  const line = (a, col, wd, dash) => { let d = ''; a.forEach((v,b) => d += (b?' L':'M') + x(b+.5) + ',' + y(v)); el('path', {d, fill:'none', stroke:col, 'stroke-width':wd, 'stroke-dasharray':dash||'', 'stroke-linejoin':'round'}, svg); };
+  if (T2.buy !== T2.sell) line(bA, 'var(--grid)', 1.8, '4 3'); line(sA, 'var(--ink)', 2);
+  el('line', {x1:m.l, x2:m.l+iw, y1:m.t+ih, y2:m.t+ih, stroke:'var(--faint)'}, svg);
+  $('t2Legend').innerHTML = `<span><i style="background:var(--ink)"></i>${T2.sell} average price${T2.buy===T2.sell ? ' (buy and sell)' : ' (sell)'}</span>` +
+    (T2.buy !== T2.sell ? `<span><i style="background:var(--grid)"></i>${T2.buy} average (buy)</span>` : '') +
+    `<span><i class="box" style="background:var(--grid-soft);border:1px solid var(--grid)"></i>Charge C1, C2</span><span><i class="box" style="background:var(--bess-soft);border:1px solid var(--bess)"></i>Discharge D1, D2</span>`;
+}
+function lineChart(svg, series, o){
+  const W = Math.max(300, svg.parentNode.clientWidth), H = 240, m = {l:54, r:14, t:16, b:26}, iw = W-m.l-m.r, ih = H-m.t-m.b;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.innerHTML = '';
+  const all = series.flatMap(s => s.v).concat(o.ref != null ? [o.ref] : []);
+  let lo = o.lo != null ? o.lo : Math.min(0, ...all), hi = o.hi != null ? o.hi : Math.max(...all); const st = niceStep((hi-lo)/4 || 1);
+  lo = Math.floor(lo/st)*st; hi = Math.ceil(hi/st)*st;
+  const n = Math.max(...series.map(s => s.v.length)), x = i => m.l + (n <= 1 ? 0 : i/(n-1)*iw), y = v => m.t + ih - (v-lo)/(hi-lo)*ih;
+  for (let v=lo; v<=hi+1e-9; v+=st){ el('line', {x1:m.l, x2:m.l+iw, y1:y(v), y2:y(v), stroke: Math.abs(v)<1e-9 ? 'var(--faint)' : 'var(--line)'}, svg);
+    el('text', {x:m.l-8, y:y(v)+3.5, 'text-anchor':'end'}, svg).textContent = o.fmt(v); }
+  for (let i=0;i<n;i+=5) el('text', {x:x(i), y:H-9, 'text-anchor':'middle'}, svg).textContent = String(i + (o.x0||0));
+  if (o.ref != null){ el('line', {x1:m.l, x2:m.l+iw, y1:y(o.ref), y2:y(o.ref), stroke:'var(--bad)', 'stroke-dasharray':'4 3'}, svg);
+    el('text', {x:m.l+iw-4, y:y(o.ref)-5, 'text-anchor':'end', style:'fill:var(--bad)'}, svg).textContent = o.refLab; }
+  for (const s of series){ let d = ''; s.v.forEach((v,i) => d += (i?' L':'M') + x(i) + ',' + y(v));
+    el('path', {d, fill:'none', stroke:s.c, 'stroke-width':2.2, 'stroke-dasharray':s.dash||'', 'stroke-linejoin':'round'}, svg);
+    (s.marks||[]).forEach(i => el('circle', {cx:x(i), cy:y(s.v[i]), r:4, fill:'var(--card)', stroke:s.c, 'stroke-width':2}, svg));
+    const li = s.v.length-1; el('text', {x:x(li)-4, y:y(s.v[li])-7, 'text-anchor':'end', style:`fill:${s.c};font-weight:500`}, svg).textContent = s.lab; }
+}
+function drawSoh2(R1, R2, C){
+  lineChart($('t2Soh'), [{v:R1.soh.map(v => v*100), c:'var(--faint)', lab:'1 cycle', marks:R1.reps.map(y => y-1)}, {v:R2.soh.map(v => v*100), c:'var(--bess)', lab:'2 cycles', marks:R2.reps.map(y => y-1)}],
+    {lo:50, hi:100, x0:1, ref:C.eol, refLab:`End of life ${C.eol}%`, fmt:v => v.toFixed(0)+'%'});
+  $('t2SohNote').textContent = `Mid-year capacity, % of nameplate · circles mark cell replacement`;
+}
+function drawCum2(R1, R2){
+  const cum = R => { let s = 0; return R.cf.map(v => (s += v)/CR); };
+  lineChart($('t2Cum'), [{v:cum(R1), c:'var(--faint)', lab:'1 cycle'}, {v:cum(R2), c:'var(--bess)', lab:'2 cycles'}], {x0:0, fmt:v => inr(v)});
+  $('t2CumNote').textContent = `Year 0 is capex · payback ${R1.pb==null?'—':R1.pb.toFixed(1)+' yrs'} (1 cycle) vs ${R2.pb==null?'—':R2.pb.toFixed(1)+' yrs'} (2 cycles)`;
+}
+function table2(R1, R2){
+  const c = v => inr(v/CR, 1), rows = [
+    ['Cycles a day', '1', '2'],
+    ['Windows (charge → sell)', R1.wins.map(w => `${hhmm(w.c)}→${hhmm(w.d)}`).join(', '), R2.wins.map(w => `${hhmm(w.c)}→${hhmm(w.d)}`).join(', ')],
+    ['Nameplate MWh', inr(R1.z.name), inr(R2.z.name)],
+    ['Energy sold, GWh', inr(R1.y1.sellMWh/1000,1), inr(R2.y1.sellMWh/1000,1)],
+    ['Avg sell ₹/MWh', inr(R1.y1.sellRev/R1.y1.sellMWh), inr(R2.y1.sellRev/R2.y1.sellMWh)],
+    ['Avg buy ₹/MWh', inr(R1.y1.buyCost/R1.y1.buyMWh), inr(R2.y1.buyCost/R2.y1.buyMWh)],
+    ['Revenue, ₹ Cr', c(R1.rows[0].rev), c(R2.rows[0].rev)],
+    ['IEX purchase, ₹ Cr', '−'+c(R1.rows[0].energy), '−'+c(R2.rows[0].energy)],
+    [T2.tx==='stoa' ? 'T-GNA, ₹ Cr' : 'GNA/LTA, ₹ Cr', '−'+c(R1.rows[0].ctu), '−'+c(R2.rows[0].ctu)],
+    ['IEX fees + O&M, ₹ Cr', '−'+c(R1.rows[0].fees + R1.rows[0].om), '−'+c(R2.rows[0].fees + R2.rows[0].om)],
+    ['Equity-funded cost, ₹ Cr', R1.rows[0].eqc ? '−'+c(R1.rows[0].eqc) : '—', R2.rows[0].eqc ? '−'+c(R2.rows[0].eqc) : '—'],
+    ['EBITDA, ₹ Cr', c(R1.rows[0].ebitda), c(R2.rows[0].ebitda)],
+    ['Capex, ₹ Cr', c(R1.capex), c(R2.capex)],
+    ['Cell replacement', R1.reps.length ? 'Year ' + R1.reps.join(', ') : 'None', R2.reps.length ? 'Year ' + R2.reps.join(', ') : 'None'],
+  ];
+  $('t2Tbl').innerHTML = `<thead><tr><th>Year 1</th><th class="r">1 cycle</th><th class="r">2 cycles</th></tr></thead><tbody>` +
+    rows.map((r,i) => `<tr class="${r[0].startsWith('EBITDA') ? 'tot' : ''}"><td>${r[0]}</td><td class="r">${r[1]}</td><td class="r">${r[2]}</td></tr>`).join('') + '</tbody>';
+}
+function setView(v){ VIEW = v; $('view1').hidden = v !== 1; $('view2').hidden = v !== 2;
+  document.querySelectorAll('.viewtabs button').forEach(b => b.setAttribute('aria-selected', +b.dataset.v === v ? 'true' : 'false'));
+  if (v === 2) update2(); else update(); }
+document.querySelectorAll('.viewtabs button').forEach(b => b.addEventListener('click', () => setView(+b.dataset.v)));
+$('t2Dur').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T2.dur = +b.dataset.v; update2(); });
+$('t2Tx').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T2.tx = b.dataset.v; update2(); });
+$('t2Buy').addEventListener('change', e => { T2.buy = e.target.value; update2(); });
+$('t2Sell').addEventListener('change', e => { T2.sell = e.target.value; update2(); });
+let raf2 = 0; const sched2 = () => { if (raf2) return; raf2 = requestAnimationFrame(() => { raf2 = 0; update2(); }); };
+[['t2c1',0,'c'],['t2d1',0,'d'],['t2c2',1,'c'],['t2d2',1,'d']].forEach(([id,i,k]) => $(id).addEventListener('input', e => { T2.win[T2.dur][i][k] = +e.target.value; sched2(); }));
+document.querySelectorAll('[id^="t2_"]').forEach(i => i.addEventListener('input', sched2));
+$('t2Best').addEventListener('click', () => { T2.key = ''; update2(); });
+
+function full(){ if (VIEW === 2) update2(); else update(); }
+function bindSeg(id, fn){ $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; fn(b.dataset.v); full(); }); }
+bindSeg('durSeg', v => S.dur = +v); bindSeg('srcSeg', v => S.src = v); bindSeg('txSeg', v => S.tx = v);
+$('buyMkt').addEventListener('change', e => { S.mkt[S.src].buy = e.target.value; update(); });
+$('sellMkt').addEventListener('change', e => { S.mkt[S.src].sell = e.target.value; update(); });
+$('cSlider').addEventListener('input', e => { S.win[S.dur].c = +e.target.value; schedule(); });
+$('dSlider').addEventListener('input', e => { S.win[S.dur].d = +e.target.value; schedule(); });
+$('capSlider').addEventListener('input', e => { $('a_bessCapex').value = (+e.target.value).toFixed(2); schedule(); });
+$('connInput').addEventListener('input', e => { const v = parseFloat(e.target.value); if (v > 0){ PLANTS[S.plant].conn = v; schedule(); } });
+document.querySelectorAll('[id^="a_"]').forEach(i => { i.addEventListener('input', schedule); i.addEventListener('change', schedule); });
+$('bestBtn').addEventListener('click', () => { const b = $('bestBtn'); b.textContent = 'Searching…';
+  setTimeout(() => { readA(); const r = findBest(); S.win[S.dur].c = r.c; S.win[S.dur].d = r.d; update(); b.textContent = 'Find best windows'; }, 30); });
+$('playBtn').addEventListener('click', () => { playing = !playing; setPlayIcon(); });
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(update, 120); });
+$('dataRange').textContent = `${DATA.dates[0]} to ${DATA.dates[N-1]}`;
+$('sideFoot').innerHTML = `IEX MCP · DAM, GDAM, RTM<br>${DATA.dates[0]} to ${DATA.dates[N-1]} · 15-min blocks`;
+readA(); update(); setPlayIcon(); requestAnimationFrame(loop);
+</script>
