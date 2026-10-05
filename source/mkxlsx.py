@@ -184,9 +184,10 @@ for p in range(192): SD.cell(row=3, column=3+p, value=p).font = fBold
 pick = {}
 for i, ds in enumerate(dates):
     if ds[5:7] == '09': pick[int(ds[8:10])] = i
-rr = 4
+rr = 4; SMAP = {}
 for m in ['DAM','GDAM','RTM']:
     for day in range(1, 31):
+        SMAP[f'{m}|{day}'] = rr
         SD.cell(row=rr, column=1, value=m).font = fB; SD.cell(row=rr, column=2, value=day).font = fB
         if day in pick:
             row = P[m][pick[day]]
@@ -202,9 +203,10 @@ DS['A2'] = ('Hardcoded outputs, per plant | duration | booster (0/1), at default
             'Each day the battery charges from the cheapest solar blocks; surplus solar is sold in the day. Includes solar degradation and BESS fade by year. Re-export from the HTML if those inputs change.'); DS['A2'].font = fNote
 DS.cell(row=4, column=1, value='Key').font = fBold; DS.cell(row=4, column=2, value='Series').font = fBold
 for y in range(1, 26): DS.cell(row=4, column=2+y, value=f'Yr {y}').font = fBold
-rr = 5
+rr = 5; DMAP = {}
 for key, v in EX['dispatch'].items():
     for s, lab, div in [('bessMWh','BESS MWh sold',1), ('bessRev','BESS revenue ₹ Cr',1e7), ('expMWh','Surplus solar MWh sold',1), ('expRev','Surplus solar revenue ₹ Cr',1e7)]:
+        DMAP[f'{key}|{s}'] = rr
         DS.cell(row=rr, column=1, value=key).font = fB; DS.cell(row=rr, column=2, value=s).font = fB
         for y in range(25):
             c = DS.cell(row=rr, column=3+y, value=v[s][y]/div); c.font = fIn; c.number_format = CR if div > 1 else NUM
@@ -520,3 +522,17 @@ cov['A36'] = 'Units: ₹ Cr = ₹ crore (10 million). Prices ₹/MWh unless show
 
 wb.calculation.fullCalcOnLoad = True
 wb.save(OUT); print('saved', OUT)
+# cell map used by the app's "Generate Excel" button (source/template.html → generateExcel)
+cov_rows = {lab: 19+i for i, (lab, *_rest) in enumerate(res)}
+xmap = {
+  'sheets': {name: f'xl/worksheets/sheet{i+1}.xml' for i, name in enumerate(wb.sheetnames)},
+  'assumptions': {k: 'B' + v.split('$')[-1] for k, v in REF.items()},
+  'plantConn': {code: f'B{pt0+i}' for i, (code, *_x) in enumerate(PL)},
+  'dispatch': DMAP, 'dispatchCol0': 3,
+  'prices': {'DAM': 5, 'GDAM': 6, 'RTM': 7}, 'pricesCol0': 2,
+  'sep': SMAP, 'sepCol0': 3,
+  'cover': {'scenario': cov_rows['Scenario'], 'irr': cov_rows['Project IRR, post-tax'], 'irrPre': cov_rows['Project IRR, pre-tax'],
+            'eirr': cov_rows['Equity IRR, post-tax'], 'wacc': cov_rows['WACC'], 'npv': cov_rows['NPV at WACC, ₹ Cr'], 'pb': cov_rows['Payback, years'],
+            'dmin': cov_rows['Minimum DSCR'], 'capex': cov_rows['Total capex, ₹ Cr'], 'name': cov_rows['BESS nameplate, MWh']},
+}
+json.dump(xmap, open(os.path.join(ROOT, 'xlsx_map.json'), 'w'), indent=1); print('xlsx_map.json written')

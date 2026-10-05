@@ -91,6 +91,13 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .signout{color:var(--side-muted);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
 .signout:hover{color:var(--side-ink)}
 .signout:focus-visible{outline:2px solid var(--side-acc);outline-offset:2px}
+.xbox{gap:10px}
+.xbox .xt{font-size:13.5px}
+.xbtn{all:unset;cursor:pointer;text-align:center;padding:9px 12px;border-radius:8px;background:var(--side-acc);color:#06221B;font-weight:700;font-size:13px}
+.xbtn:hover{filter:brightness(1.08)} .xbtn:focus-visible{outline:2px solid #fff;outline-offset:2px} .xbtn:disabled{opacity:.6;cursor:wait}
+.xlink{color:var(--side-muted);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.xlink:hover{color:var(--side-ink)}
+#xlsMsg:empty{display:none}
 /* ---- main ---- */
 main{padding-block:22px 48px;padding-inline:28px;display:flex;flex-direction:column;gap:18px;min-width:0}
 @media (max-width:960px){main{padding-inline:16px}}
@@ -369,8 +376,13 @@ details.assm-d[open] > summary{margin-bottom:14px}
     <div class="eqrow"><span>₹</span><input id="a_eqCost" type="number" step="1" min="0" value="20" aria-label="Equity-funded cost, ₹ Cr a year"><span>Cr a year, years 1 to</span><input id="a_eqYears" type="number" step="1" min="0" max="25" value="2" aria-label="Number of years"></div>
     <p id="eqOut"></p>
   </div>
+  <div class="keyin xbox" id="xlsBox" hidden>
+    <b class="xt">Financial model (Excel)</b>
+    <button class="xbtn" id="xlsGen">Generate from current inputs</button>
+    <a class="xlink" href="BESS_IEX_Financial_Model.xlsx" download>Download the default model</a>
+    <p id="xlsMsg" aria-live="polite"></p>
+  </div>
   <div class="foot" id="sideFoot"></div>
-  <a class="signout" id="signOut" href="/logout" hidden>Sign out</a>
 </aside>
 
 <main>
@@ -1585,8 +1597,94 @@ $('bestBtn').addEventListener('click', () => { const b = $('bestBtn'); b.textCon
   setTimeout(() => { readA(); const r = findBest(); S.win[S.dur].c = r.c; S.win[S.dur].d = r.d; update(); b.textContent = 'Find best windows'; }, 30); });
 $('playBtn').addEventListener('click', () => { playing = !playing; setPlayIcon(); });
 let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(update, 120); });
+/* ================= Excel export: fill the model workbook with the current inputs ================= */
+const XLS_FILE = 'BESS_IEX_Financial_Model.xlsx';
+const loadScript = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('Could not load the spreadsheet library. Check the internet connection.')); document.head.appendChild(s); });
+const colL = n => { let s = ''; while (n > 0){ const m = (n-1) % 26; s = String.fromCharCode(65+m) + s; n = Math.floor((n-1)/26); } return s; };
+const xesc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function setCells(xml, vals){
+  return xml.replace(/<c r="([A-Z]+\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, (m, ref, attrs) => {
+    if (!(ref in vals)) return m; const v = vals[ref], s = (attrs.match(/ s="\d+"/) || [''])[0];
+    return typeof v === 'number' ? `<c r="${ref}"${s} t="n"><v>${v}</v></c>` : `<c r="${ref}"${s} t="inlineStr"><is><t>${xesc(v)}</t></is></c>`; });
+}
+const stripCached = xml => xml.replace(/<c r="([A-Z]+\d+)"([^>]*)><f>([\s\S]*?)<\/f><v>[\s\S]*?<\/v><\/c>/g, (m, ref, attrs, f) => `<c r="${ref}"${attrs.replace(/ t="[^"]*"/, '')}><f>${f}</f><v></v></c>`);
+function setCached(xml, vals){
+  return xml.replace(/<c r="([A-Z]+\d+)"([^>]*)><f>([\s\S]*?)<\/f><v><\/v><\/c>/g, (m, ref, attrs, f) => {
+    if (!(ref in vals) || vals[ref] == null) return m; const v = vals[ref];
+    return typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${attrs}><f>${f}</f><v>${v}</v></c>` : `<c r="${ref}"${attrs} t="str"><f>${f}</f><v>${xesc(v)}</v></c>`; });
+}
+function excelState(){
+  readA(); const A = S.a, C = readT2(), pc = v => v/100;
+  const caseName = S.src === 'solar' ? 'Own solar' : (S.tx === 'stoa' ? 'IEX + T-GNA' : 'IEX + GNA');
+  const v = {plant:S.plant, dur:S.dur, case:caseName, solarSell:S.mkt.solar.sell, gridBuy:S.mkt.grid.buy, gridSell:S.mkt.grid.sell,
+    c2:S.win[2].c, d2:S.win[2].d, c4:S.win[4].c, d4:S.win[4].d, solarSize:pc(A.solarSize), boostOn:A.boostOn ? 1 : 0, boostStart:A.boostStart, boostDays:A.boostDays, boostPrice:A.boostPrice,
+    eqOn:A.eqOn ? 1 : 0, eqCost:A.eqCost, eqYears:A.eqYears, solarCapex:A.solarCapex, bessCapex:A.bessCapex, landRate:A.landRate, landMode:A.landMode === 'buy' ? 'Buy' : 'Lease', landEsc:pc(A.landEsc), cuf:pc(A.cuf), auxMW:A.auxMW,
+    dod:pc(A.dod), rte:pc(A.rte), deg:pc(A.deg), bessAux:pc(A.bessAux), lineLoss:pc(A.lineLoss), istsLoss:pc(A.istsLoss), avail:pc(A.avail), augYear:A.augYear, augPct:pc(A.augPct),
+    stoa:A.stoa, lta:A.lta, fee:A.fee, life:A.life, tax:pc(A.tax), esc:pc(A.esc), omSolar:A.omSolar, omBess:pc(A.omBess), omEsc:pc(A.omEsc), solDeg:pc(A.solDeg), debtPct:pc(A.debtPct), kd:pc(A.kd), tenor:A.tenor, ke:pc(A.ke),
+    cDur:T2.dur, cTx:T2.tx === 'stoa' ? 'T-GNA' : 'GNA', cBuy:T2.buy, cSell:T2.sell, cCapex:C.capex, cCycles:C.life, cEol:pc(C.eol), cCal:pc(C.cal), cDod:pc(C.dod), cRte:pc(C.rte), cAux:pc(C.aux), cAvail:pc(C.avail), cRep:pc(C.rep)};
+  const catl = {};
+  for (const h of [2,4]){ const z1 = size2(h,1,C), z2 = size2(h,2,C), WB = winSums(T2.buy, z2.nc), WS = winSums(T2.sell, z2.nb), WB1 = z1.nc === z2.nc ? WB : winSums(T2.buy, z1.nc);
+    const w1 = best1(WB1, WS, z1), w2 = (h === T2.dur && T2.win[h]) ? T2.win[h] : best2(WB, WS, z2);
+    Object.assign(v, {['k1c'+h]:w1[0].c, ['k1d'+h]:w1[0].d, ['k2c1'+h]:w2[0].c, ['k2d1'+h]:w2[0].d, ['k2c2'+h]:w2[1].c, ['k2d2'+h]:w2[1].d});
+    if (h === T2.dur){ catl.R1 = run2(1, w1, C, WB1, WS); catl.R2 = run2(2, w2, C, WB, WS); } }
+  return {v, caseName, catl, C};
+}
+async function generateExcel(){
+  const btn = $('xlsGen'), msg = $('xlsMsg'), label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Generating…'; msg.textContent = '';
+  try {
+    if (!window.JSZip) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    const [buf, map] = await Promise.all([
+      fetch(XLS_FILE, {cache:'no-store'}).then(r => { if (!r.ok) throw new Error(`The Excel template is not on this site (${r.status}).`); return r.arrayBuffer(); }),
+      fetch('xlsx_map.json', {cache:'no-store'}).then(r => { if (!r.ok) throw new Error(`The Excel cell map is not on this site (${r.status}).`); return r.json(); })]);
+    await new Promise(r => setTimeout(r, 20));
+    const zip = await JSZip.loadAsync(buf), {v, caseName, catl} = excelState();
+    const put = {}; for (const k in map.assumptions) if (k in v) put[map.assumptions[k]] = v[k];
+    for (const k in map.plantConn) put[map.plantConn[k]] = PLANTS[k].conn;
+    const edit = async (sheet, fn) => { const p = map.sheets[sheet]; zip.file(p, fn(await zip.file(p).async('string'))); };
+    // own-solar dispatch, recomputed with the current inputs, windows and solar sizing
+    const disp = {}, cache = {}, keepPlant = S.plant, keepBoost = S.a.boostOn;
+    try {
+      for (const k in map.dispatch){ const [pk, h, bo, series] = k.split('|'), ck = pk+'|'+h+'|'+bo;
+        if (!cache[ck]){ S.plant = pk; S.a.boostOn = bo === '1'; cache[ck] = run(scOf(+h, 'solar', S.tx)).years; }
+        const div = series.endsWith('Rev') ? CR : 1;
+        cache[ck].forEach((Y, i) => { disp[colL(map.dispatchCol0 + i) + map.dispatch[k]] = (Y[series] || 0)/div; }); }
+    } finally { S.plant = keepPlant; S.a.boostOn = keepBoost; }
+    // prices, only if they were edited on the chart
+    let pr = null, sp = null;
+    if (anyEdited()){
+      pr = {}; for (const m of ['DAM','GDAM','RTM']){ const a = avgOf(m); for (let p=0;p<192;p++) pr[colL(map.pricesCol0 + p) + map.prices[m]] = Math.round(a[p % 96]*100)/100; }
+      sp = {}; const pick = {}; DATA.dates.forEach((ds, i) => { if (ds.slice(5,7) === '09') pick[+ds.slice(8,10)] = i; });
+      for (const k in map.sep){ const [m, day] = k.split('|'), i = pick[+day]; if (i == null) continue; for (let p=0;p<192;p++) sp[colL(map.sepCol0 + p) + map.sep[k]] = DATA[m][i][p % 96]; }
+    }
+    // headline results for the Cover, so previewers show them before Excel recalculates
+    const R = run(scOf(S.dur, S.src, S.tx)), R1 = catl.R1, R2 = catl.R2, cov = {};
+    const ir = x => x == null ? '< 0%' : x;
+    const metric = {irr: X => ir(X.irr), irrPre: X => ir(X.irrPre), eirr: X => ir(X.eirr), wacc: X => X.wacc, npv: X => X.npv/CR, pb: X => X.pb == null ? 'beyond life' : X.pb, dmin: X => X.dscrMin, capex: X => X.capex/CR, name: X => X.z.name};
+    for (const k in metric) [[R,'B'],[R1,'C'],[R2,'D']].forEach(([X, col]) => { if (X) cov[col + map.cover[k]] = metric[k](X); });
+    cov['B' + map.cover.scenario] = `${S.plant} · ${S.dur}h · ${caseName}`; cov['C' + map.cover.scenario] = `${S.plant} · ${T2.dur}h · ${T2.tx === 'stoa' ? 'T-GNA' : 'GNA'}`;
+    for (const sh of Object.keys(map.sheets)){
+      await edit(sh, xml => {
+        if (sh === 'Assumptions') xml = setCells(xml, put);
+        if (sh === 'Dispatch') xml = setCells(xml, disp);
+        if (sh === 'Prices' && pr) xml = setCells(xml, pr);
+        if (sh === 'SepDays' && sp) xml = setCells(xml, sp);
+        xml = stripCached(xml);            // other results are recalculated when the file is opened
+        if (sh === 'Cover') xml = setCached(xml, cov);
+        return xml; });
+    }
+    const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const day = new Date().toISOString().slice(0,10), name = `BESS_Model_${S.plant}_${S.dur}h_${caseName.replace(/[^A-Za-z0-9]+/g,'-')}_${day}.xlsx`;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    msg.textContent = `Downloaded ${name}. Open it in Excel, Numbers or Google Sheets to see every figure; the Cover shows the headline results right away.`;
+  } catch (e) { msg.textContent = e.message || String(e); }
+  finally { btn.disabled = false; btn.textContent = label; }
+}
+if (/^https?:$/.test(location.protocol) && !/claude|anthropic|usercontent/.test(location.hostname)) $('xlsBox').hidden = false;
+$('xlsGen').addEventListener('click', generateExcel);
+
 $('dataRange').textContent = `${DATA.dates[0]} to ${DATA.dates[N-1]}`;
-if (location.protocol === 'https:' && !/claude|anthropic|usercontent/.test(location.hostname)) $('signOut').hidden = false;
 $('sideFoot').innerHTML = `IEX MCP · DAM, GDAM, RTM<br>${DATA.dates[0]} to ${DATA.dates[N-1]} · 15-min blocks`;
 readA(); update(); setPlayIcon(); requestAnimationFrame(loop);
 </script>

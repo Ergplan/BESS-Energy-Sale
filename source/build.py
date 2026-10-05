@@ -19,7 +19,7 @@ full_sa = standalone('IEX BESS Arbitrage', '<!-- full two-tab model, standalone 
 open(dst('bess_arbitrage_full_standalone.html'), 'w').write(full_sa)
 open(dst('index.html'), 'w').write(full_sa)   # Vercel / static-host home page = full two-tab model
 open(dst('solar_bess_iex_arbitrage.html'), 'w').write(standalone('Solar BESS Arbitrage',
-    "<script>\n(function(){ document.querySelector('.viewtabs').hidden = true; document.getElementById('view2').remove(); VIEW = 1; })();\n</script>"))
+    "<script>\n(function(){ document.querySelector('.viewtabs').hidden = true; document.getElementById('view2').hidden = true; VIEW = 1; })();\n</script>"))
 open(dst('two_cycle_catl_iex.html'), 'w').write(standalone('CATL Two-Cycle Arbitrage', open(src('standalone.js')).read()))
 s = full[full.rindex('<script>')+8:full.rindex('</script>')]
 open(src('.model.js'), 'w').write(s)   # extracted script, used by export_dispatch.py and for `node --check`

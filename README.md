@@ -12,9 +12,19 @@ connectivity, charged from own solar or from IEX, and sold on IEX (DAM / GDAM / 
 | `solar_bess_iex_arbitrage.html` | Solar + BESS case only |
 | `two_cycle_catl_iex.html` | 2 cycles/day CATL IEX-only case only |
 | `bess_arbitrage_model.html` | Same as the full model, in the format used for the published claude.ai page |
-| `BESS_IEX_Financial_Model.xlsx` | Excel model: Assumptions sheet + live 25-year model sheets |
+| `BESS_IEX_Financial_Model.xlsx` | Excel model: Assumptions sheet + live 25-year model sheets (also the template for the app's Generate button) |
+| `xlsx_map.json` | Which Excel cell holds each input; used by the Generate button |
 
 Inputs: `DAM_/GDAM_/RTM_15min_2025-09-01_to_2026-09-23.xlsx` (IEX MCP, 15-minute).
+
+## Generate Excel from the app
+
+On the hosted site the sidebar has **Financial model (Excel)**: *Generate from current inputs* downloads the
+workbook filled with everything set in the app — plant and connectivity, duration, charging case, markets,
+windows, capex, technical and finance inputs, booster and equity-cost switches, CATL inputs and windows, and
+any prices dragged on the chart. Own-solar dispatch is recomputed in the browser for the current inputs.
+The Cover shows headline results immediately; Excel, Numbers and Google Sheets recalculate the rest on open.
+*Download the default model* gets the file as built. (Hidden when a page is opened as a local file.)
 
 ## Deploy (Vercel)
 
@@ -25,23 +35,11 @@ The repo is a static site with no build step. `index.html` is the full two-tab m
 - `.vercelignore` keeps `source/` and the raw IEX price files out of the deployment; the Excel model is downloadable at `/BESS_IEX_Financial_Model.xlsx`.
 - After any change: run `python3 source/build.py`, commit and push; Vercel redeploys automatically.
 
-## Access (sign-in)
+## Access
 
-The Vercel site is behind a sign-in page (`login.html`, JouleWise branding, "Authorized for SAEL Group").
-`middleware.js` runs on Vercel before any page or file is served, checks the email and password, and sets a
-signed session cookie (12 hours). `/logout` signs out.
-
-Credentials are **not** stored in this repo. Set them in Vercel → Project → Settings → Environment Variables
-(Production), then redeploy:
-
-| Variable | Value |
-|---|---|
-| `LOGIN_EMAIL` | the authorised user's email (matched case-insensitively) |
-| `LOGIN_PASSWORD` | the password (case-sensitive) |
-| `AUTH_SECRET` | optional: a long random string for signing sessions |
-
-If `LOGIN_EMAIL` or `LOGIN_PASSWORD` is missing, the site returns 503 rather than opening up.
-The sign-in protects the Vercel site only: anyone can still read this repository while it is public.
+Access is managed by Vercel, not by the app. In Vercel → Project → Settings → **Deployment Protection**, turn on
+**Vercel Authentication** for the deployments you want protected (including Production), then invite users to the
+Vercel team/project. Invited users sign in with their Vercel account to open the site; anyone else is refused.
 
 ## Source (`source/`)
 
@@ -52,7 +50,8 @@ The sign-in protects the Vercel site only: anyone can still read this repository
 | `extract_prices.py` | Reads the IEX xlsx files → `prices.json` |
 | `build.py` | `template.html` + `prices.json` → the five HTML files (incl. `index.html`) |
 | `export_dispatch.js` | Runs the model's own JS → `export.json` (own-solar dispatch + reference results for Excel) |
-| `mkxlsx.py` | `prices.json` + `export.json` → `BESS_IEX_Financial_Model.xlsx` |
+| `mkxlsx.py` | `prices.json` + `export.json` → `BESS_IEX_Financial_Model.xlsx` and `xlsx_map.json` |
+| `add_cached_values.py` | Stores calculated values in the Excel so previewers (Quick Look, Drive, phones) show numbers |
 | `evalx.py` | Optional check: recalculates the Excel and reports formula errors |
 
 ## Rebuild everything
@@ -64,6 +63,7 @@ python3 source/extract_prices.py      # only if the IEX price files change
 python3 source/build.py
 node source/export_dispatch.js
 python3.12 source/mkxlsx.py           # needs openpyxl
+python3.12 source/add_cached_values.py   # needs: pip install formulas
 ```
 
 `export_dispatch.js` and `mkxlsx.py` contain their own copy of the default inputs. If you change defaults in
