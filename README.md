@@ -25,6 +25,24 @@ The repo is a static site with no build step. `index.html` is the full two-tab m
 - `.vercelignore` keeps `source/` and the raw IEX price files out of the deployment; the Excel model is downloadable at `/BESS_IEX_Financial_Model.xlsx`.
 - After any change: run `python3 source/build.py`, commit and push; Vercel redeploys automatically.
 
+## Access (sign-in)
+
+The Vercel site is behind a sign-in page (`login.html`, JouleWise branding, "Authorized for SAEL Group").
+`middleware.js` runs on Vercel before any page or file is served, checks the email and password, and sets a
+signed session cookie (12 hours). `/logout` signs out.
+
+Credentials are **not** stored in this repo. Set them in Vercel → Project → Settings → Environment Variables
+(Production), then redeploy:
+
+| Variable | Value |
+|---|---|
+| `LOGIN_EMAIL` | the authorised user's email (matched case-insensitively) |
+| `LOGIN_PASSWORD` | the password (case-sensitive) |
+| `AUTH_SECRET` | optional: a long random string for signing sessions |
+
+If `LOGIN_EMAIL` or `LOGIN_PASSWORD` is missing, the site returns 503 rather than opening up.
+The sign-in protects the Vercel site only: anyone can still read this repository while it is public.
+
 ## Source (`source/`)
 
 | File | Role |

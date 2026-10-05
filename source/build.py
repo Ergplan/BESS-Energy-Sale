@@ -4,6 +4,8 @@ import json, os
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 src = lambda f: os.path.join(HERE, f); dst = lambda f: os.path.join(ROOT, f)
 t = open(src('template.html')).read()
+import base64
+t = t.replace('/*__LOGO__*/', 'data:image/jpeg;base64,' + base64.b64encode(open(src('joulewise-logo-small.jpg'), 'rb').read()).decode())  # JouleWise logo, embedded so it works offline
 r = json.load(open(src('prices.json'))); d = {'dates': r['dates'][-365:]}   # latest 365 days
 for m in ['DAM', 'GDAM', 'RTM']: d[m] = r[m][-365:]
 full = t.replace('/*__DATA__*/', json.dumps(d, separators=(',', ':')))
