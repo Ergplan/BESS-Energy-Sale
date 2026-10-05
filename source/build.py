@@ -13,10 +13,12 @@ def standalone(title, tail):
     s = full.replace('<title>IEX BESS Arbitrage</title>', f'<title>{title}</title>', 1)
     s = head + s.replace('[hidden]{display:none!important}', '[hidden]{display:none!important}\nbody{margin:0}', 1)
     return s + '\n' + tail + '\n</html>\n'
-open(dst('bess_arbitrage_full_standalone.html'), 'w').write(standalone('IEX BESS Arbitrage', '<!-- full two-tab model, standalone -->'))
+full_sa = standalone('IEX BESS Arbitrage', '<!-- full two-tab model, standalone -->')
+open(dst('bess_arbitrage_full_standalone.html'), 'w').write(full_sa)
+open(dst('index.html'), 'w').write(full_sa)   # Vercel / static-host home page = full two-tab model
 open(dst('solar_bess_iex_arbitrage.html'), 'w').write(standalone('Solar BESS Arbitrage',
     "<script>\n(function(){ document.querySelector('.viewtabs').hidden = true; document.getElementById('view2').remove(); VIEW = 1; })();\n</script>"))
 open(dst('two_cycle_catl_iex.html'), 'w').write(standalone('CATL Two-Cycle Arbitrage', open(src('standalone.js')).read()))
 s = full[full.rindex('<script>')+8:full.rindex('</script>')]
 open(src('.model.js'), 'w').write(s)   # extracted script, used by export_dispatch.py and for `node --check`
-print('built 4 HTML files in', ROOT)
+print('built 5 HTML files (incl. index.html) in', ROOT)

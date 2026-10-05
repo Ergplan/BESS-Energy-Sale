@@ -1,0 +1,7 @@
+# Only the HTML pages (and the Excel model) are deployed
+source/
+.claude/
+README.md
+DAM_15min_*.xlsx
+GDAM_15min_*.xlsx
+RTM_15min_*.xlsx

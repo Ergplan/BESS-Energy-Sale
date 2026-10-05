@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/solar",
+      "destination": "/solar_bess_iex_arbitrage.html"
+    },
+    {
+      "source": "/two-cycle",
+      "destination": "/two_cycle_catl_iex.html"
+    },
+    {
+      "source": "/model",
+      "destination": "/bess_arbitrage_full_standalone.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}

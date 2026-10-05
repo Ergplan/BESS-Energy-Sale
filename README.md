@@ -7,6 +7,7 @@ connectivity, charged from own solar or from IEX, and sold on IEX (DAM / GDAM / 
 
 | File | What it is |
 |---|---|
+| `index.html` | Home page for Vercel — identical to `bess_arbitrage_full_standalone.html` |
 | `bess_arbitrage_full_standalone.html` | Full two-tab model (Solar + BESS, and 2 cycles/day CATL 12,000 IEX-only). Double-click to open. |
 | `solar_bess_iex_arbitrage.html` | Solar + BESS case only |
 | `two_cycle_catl_iex.html` | 2 cycles/day CATL IEX-only case only |
@@ -15,6 +16,15 @@ connectivity, charged from own solar or from IEX, and sold on IEX (DAM / GDAM / 
 
 Inputs: `DAM_/GDAM_/RTM_15min_2025-09-01_to_2026-09-23.xlsx` (IEX MCP, 15-minute).
 
+## Deploy (Vercel)
+
+The repo is a static site with no build step. `index.html` is the full two-tab model.
+
+- Import the GitHub repo in Vercel → **Framework Preset: Other**, leave Build Command and Output Directory empty, Root Directory `./`.
+- Pages: `/` (full model) · `/solar` (Solar + BESS only) · `/two-cycle` (CATL 2-cycle only) · `/model` (same as `/`).
+- `.vercelignore` keeps `source/` and the raw IEX price files out of the deployment; the Excel model is downloadable at `/BESS_IEX_Financial_Model.xlsx`.
+- After any change: run `python3 source/build.py`, commit and push; Vercel redeploys automatically.
+
 ## Source (`source/`)
 
 | File | Role |
@@ -22,7 +32,7 @@ Inputs: `DAM_/GDAM_/RTM_15min_2025-09-01_to_2026-09-23.xlsx` (IEX MCP, 15-minute
 | `template.html` | The model: UI, calculations and charts. **Edit this** to change the model or its defaults. |
 | `standalone.js` | Extra script that turns the full model into the CATL-only standalone |
 | `extract_prices.py` | Reads the IEX xlsx files → `prices.json` |
-| `build.py` | `template.html` + `prices.json` → the four HTML files |
+| `build.py` | `template.html` + `prices.json` → the five HTML files (incl. `index.html`) |
 | `export_dispatch.js` | Runs the model's own JS → `export.json` (own-solar dispatch + reference results for Excel) |
 | `mkxlsx.py` | `prices.json` + `export.json` → `BESS_IEX_Financial_Model.xlsx` |
 | `evalx.py` | Optional check: recalculates the Excel and reports formula errors |
