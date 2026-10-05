@@ -6,26 +6,15 @@
   "rewrites": [
     {
       "source": "/solar",
-      "destination": "/solar_bess_iex_arbitrage.html"
+      "destination": "/solar_bess_iex_arbitrage"
     },
     {
       "source": "/two-cycle",
-      "destination": "/two_cycle_catl_iex.html"
+      "destination": "/two_cycle_catl_iex"
     },
     {
       "source": "/model",
-      "destination": "/bess_arbitrage_full_standalone.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*).html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
+      "destination": "/bess_arbitrage_full_standalone"
     }
   ]
 }
