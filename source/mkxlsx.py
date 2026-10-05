@@ -60,11 +60,11 @@ def sec(text):
 
 sec('Scenario selectors (Solar + BESS model sheet)')
 inp('plant', 'Name of solar plant', 'P7', 'code', note='P7 Tumkur · P8 Bidar · P12 Kunnoor 4. Also used by the CATL sheets.', key=True, options=['P7','P8','P12'])
-inp('dur', 'BESS duration', 4, 'hours', note='2 or 4 hours of discharge at the full night connectivity.', key=True, options=['2','4'])
-inp('case', 'Charging case', 'Own solar', 'text', note='Own solar = Solar + BESS project. IEX + T-GNA / IEX + GNA = standalone BESS buying on IEX.', key=True, options=['Own solar','IEX + T-GNA','IEX + GNA'])
+inp('dur', 'BESS duration', 2, 'hours', note='2 or 4 hours of discharge at the full night connectivity.', key=True, options=['2','4'])
+inp('case', 'Charging case', 'IEX + T-GNA', 'text', note='Own solar = Solar + BESS project. IEX + T-GNA / IEX + GNA = standalone BESS buying on IEX.', key=True, options=['Own solar','IEX + T-GNA','IEX + GNA'])
 inp('solarSell', 'Own-solar case: sell market', 'GDAM', 'market', note='Green energy from own solar is sold on GDAM (HTML default). The own-solar dispatch table was computed with GDAM.', options=['DAM','GDAM','RTM'])
-inp('gridBuy', 'IEX cases: buy market', 'DAM', 'market', options=['DAM','GDAM','RTM'])
-inp('gridSell', 'IEX cases: sell market', 'DAM', 'market', options=['DAM','GDAM','RTM'])
+inp('gridBuy', 'IEX cases: buy market', 'RTM', 'market', options=['DAM','GDAM','RTM'])
+inp('gridSell', 'IEX cases: sell market', 'GDAM', 'market', options=['DAM','GDAM','RTM'])
 inp('c2', 'Charge window start, 2-hour (IEX cases)', 44, 'block 0–95', note='15-minute block index: 44 = 11:00. Charge window length is set by the connectivity limit (Model sheet).')
 inp('d2', 'Discharge window start, 2-hour', 76, 'block 0–95', note='76 = 19:00. The own-solar dispatch table uses this default.')
 inp('c4', 'Charge window start, 4-hour (IEX cases)', 38, 'block 0–95', note='38 = 09:30.')
@@ -80,7 +80,7 @@ inp('eqYears', '…for the first N years', 2, 'years')
 
 sec('Capex & land')
 inp('solarCapex', 'Solar capex', 2.05, '₹ Cr / MWp DC', NUM2, key=True, note='User input.')
-inp('bessCapex', 'BESS capex, all-inclusive on nameplate', 1.05, '₹ Cr / MWh', NUM2, key=True, note='User input.')
+inp('bessCapex', 'BESS capex, all-inclusive on nameplate', 0.98, '₹ Cr / MWh', NUM2, key=True, note='User input.')
 inp('landRate', 'Land rate', 35000, '₹ / acre', NUM, note='User input (plant table).')
 inp('landMode', 'Land rate basis', 'Lease', 'text', note='Lease = annual lease escalating; Buy = one-time purchase in year 0.', options=['Lease','Buy'])
 inp('landEsc', 'Lease escalation', 0.05, '% / yr', PCT)
@@ -458,7 +458,7 @@ C1 = catl('CATL 1 cycle', 1); C2 = catl('CATL 2 cycles', 2)
 # ------------------------------------------------------------------ Scenarios (reference values from the HTML model)
 SC = sheet('Scenarios')
 SC['A1'] = 'Reference results from the HTML model (default inputs)'; SC['A1'].font = fH1
-SC['A2'] = 'Static values for checking the live sheets. Defaults: solar ₹2.05 Cr/MWp, BESS ₹1.05 Cr/MWh, T-GNA ₹586/MWh, equity-funded cost on unless shown.'; SC['A2'].font = fNote
+SC['A2'] = 'Static values for checking the live sheets. Defaults: solar ₹2.05 Cr/MWp, BESS ₹0.98 Cr/MWh, IEX cases buy RTM / sell GDAM, T-GNA ₹586/MWh, equity-funded cost on unless shown.'; SC['A2'].font = fNote
 hdr = ['Plant','Hours','Case','Booster','Equity cost','Project IRR','Equity IRR','NPV ₹ Cr','Capex ₹ Cr','Min DSCR','Nameplate MWh','Solar MWac','BESS MWh sold, yr 1','EBITDA yr 1 ₹ Cr','Levelised cost ₹/kWh']
 for j, h in enumerate(hdr, start=1): c = SC.cell(row=4, column=j, value=h); c.font = fH2; c.fill = fillHead; SC.column_dimensions[L(j)].width = 14
 rr = 5

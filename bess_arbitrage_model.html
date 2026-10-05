@@ -514,7 +514,7 @@ details.assm-d[open] > summary{margin-bottom:14px}
       <div class="assm">
         <div class="grp"><h3>Capex &amp; land</h3>
           <div class="field"><label for="a_solarCapex">Solar ₹ Cr / MWp DC</label><input id="a_solarCapex" type="number" step="0.01" value="2.05"></div>
-          <div class="field"><label for="a_bessCapex">BESS ₹ Cr / MWh nameplate</label><input id="a_bessCapex" type="number" step="0.01" value="1.05"></div>
+          <div class="field"><label for="a_bessCapex">BESS ₹ Cr / MWh nameplate</label><input id="a_bessCapex" type="number" step="0.01" value="0.98"></div>
           <div class="field"><label for="a_landRate">Land ₹ / acre</label><input id="a_landRate" type="number" step="1000" value="35000"></div>
           <div class="field"><label for="a_landMode">Land basis</label><select id="a_landMode"><option value="lease">Annual lease</option><option value="buy">One-time purchase</option></select></div>
           <div class="field"><label for="a_landEsc">Lease escalation %/yr</label><input id="a_landEsc" type="number" step="0.5" value="5"></div>
@@ -648,8 +648,8 @@ const PLANTS = {
 const MF = [1.07,1.14,1.15,1.12,1.05,0.86,0.80,0.84,0.92,0.97,1.01,1.03];
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CR = 1e7;
-const S = { plant:'P7', dur:4, src:'solar', tx:'stoa',
-  mkt:{grid:{buy:'DAM', sell:'DAM'}, solar:{buy:'DAM', sell:'GDAM'}},
+const S = { plant:'P7', dur:2, src:'grid', tx:'stoa',
+  mkt:{grid:{buy:'RTM', sell:'GDAM'}, solar:{buy:'DAM', sell:'GDAM'}},
   win:{2:{c:44,d:76}, 4:{c:38,d:72}}, a:{} };
 
 const $ = id => document.getElementById(id);

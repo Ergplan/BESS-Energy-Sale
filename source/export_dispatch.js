@@ -5,7 +5,7 @@ const s = fs.readFileSync(path.join(__dirname, '.model.js'), 'utf8');
 const core = s.slice(0, s.indexOf('/* ---------- render: sidebar'));
 const v2 = s.slice(s.indexOf('const T2 = {'), s.indexOf('function update2(){'));
 const test = `
-const base={solarCapex:2.05,bessCapex:1.05,landRate:35000,landMode:'lease',landEsc:5,cuf:30,auxMW:1,surplus:'sell',dod:90,rte:90,deg:1.5,bessAux:1,lineLoss:1,istsLoss:3,avail:99,augYear:12,augPct:20,stoa:586,lta:3.96,fee:15,life:25,tax:25.17,esc:0,omSolar:5,omBess:0.5,omEsc:3,solDeg:0.5,solarSize:100,debtPct:70,kd:9.5,tenor:15,ke:14,boostOn:false,boostDays:20,boostStart:1,boostPrice:15,eqOn:true,eqCost:20,eqYears:2};
+const base={solarCapex:2.05,bessCapex:0.98,landRate:35000,landMode:'lease',landEsc:5,cuf:30,auxMW:1,surplus:'sell',dod:90,rte:90,deg:1.5,bessAux:1,lineLoss:1,istsLoss:3,avail:99,augYear:12,augPct:20,stoa:586,lta:3.96,fee:15,life:25,tax:25.17,esc:0,omSolar:5,omBess:0.5,omEsc:3,solDeg:0.5,solarSize:100,debtPct:70,kd:9.5,tenor:15,ke:14,boostOn:false,boostDays:20,boostStart:1,boostPrice:15,eqOn:true,eqCost:20,eqYears:2};
 const out={dispatch:{}, results:[], catl:{}};
 S.win={2:{c:44,d:76},4:{c:38,d:72}};
 for (const pk of ['P7','P8','P12']){ S.plant=pk;
