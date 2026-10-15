@@ -8,7 +8,7 @@ connectivity, charged from own solar or from IEX, and sold on IEX (DAM / GDAM / 
 | File | What it is |
 |---|---|
 | `index.html` | Home page for Vercel — identical to `bess_arbitrage_full_standalone.html` |
-| `bess_arbitrage_full_standalone.html` | Full two-tab model (Solar + BESS, and 2 cycles/day CATL 12,000 IEX-only). Double-click to open. |
+| `bess_arbitrage_full_standalone.html` | Full model with three tabs: Solar + BESS · 2 cycles/day CATL 12,000 IEX-only · Solar bought at ₹2.545/kWh with BESS sale on DAM/GDAM/RTM/Flexible. Double-click to open. |
 | `solar_bess_iex_arbitrage.html` | Solar + BESS case only |
 | `two_cycle_catl_iex.html` | 2 cycles/day CATL IEX-only case only |
 | `bess_arbitrage_model.html` | Same as the full model, in the format used for the published claude.ai page |

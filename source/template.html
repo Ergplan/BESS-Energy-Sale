@@ -297,7 +297,7 @@ svg text{fill:var(--muted);font-family:var(--f-m);font-size:10.5px}
 .viewtabs button:hover{color:var(--ink)}
 .viewtabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--bess)}
 .viewtabs button:focus-visible{outline:2px solid var(--bess);outline-offset:-2px}
-.view:not([hidden]),#view2:not([hidden]){display:flex;flex-direction:column;gap:18px;min-width:0}
+.view:not([hidden]),#view2:not([hidden]),#view3:not([hidden]){display:flex;flex-direction:column;gap:18px;min-width:0}
 .cmp{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:14px}
 @media (max-width:1100px){.cmp{grid-template-columns:1fr}}
 .ctls.four{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -313,6 +313,15 @@ svg text{fill:var(--muted);font-family:var(--f-m);font-size:10.5px}
 .eqrow input{width:52px;font:inherit;font-family:var(--f-m);font-size:13px;padding:4px 6px;border-radius:6px;border:1px solid var(--side-line);background:var(--side-bg);color:var(--side-ink);text-align:right}
 .eqrow input:focus{outline:2px solid var(--side-acc);outline-offset:0}
 #eqOut b{color:var(--side-ink);font-weight:600}
+.t3bar{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.t3bar .dim{opacity:.45}
+.t3bar .bf input{width:76px}
+#view3 .heroes{grid-template-columns:1.2fr 1.1fr 1fr 1fr 1fr}
+@media (max-width:1320px){#view3 .heroes{grid-template-columns:1fr 1fr 1fr}}
+@media (max-width:900px){#view3 .heroes{grid-template-columns:1fr 1fr}}
+#view3 .minis{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (max-width:1180px){#view3 .minis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:620px){#view3 .minis{grid-template-columns:1fr 1fr}}
 /* waterfall & table */
 .wf{display:grid;grid-template-columns:minmax(120px,185px) 1fr 92px;gap:7px 12px;align-items:center;font-size:13px}
 .wf .l{color:var(--muted)} .wf .l.strong{color:var(--ink);font-weight:600}
@@ -385,6 +394,7 @@ details.assm-d[open] > summary{margin-bottom:14px}
   <nav class="viewtabs" role="tablist" aria-label="Model views">
     <button role="tab" data-v="1" aria-selected="true">Solar + BESS model</button>
     <button role="tab" data-v="2" aria-selected="false">2 cycles a day · CATL 12,000 · IEX only</button>
+    <button role="tab" data-v="3" aria-selected="false">Solar at ₹2.545/kWh · BESS sale</button>
   </nav>
   <div id="view1" class="view">
   <div class="head">
@@ -644,6 +654,59 @@ details.assm-d[open] > summary{margin-bottom:14px}
       </div>
     </section>
   </div>
+</div>
+<div id="view3" hidden>
+  <div class="head">
+    <div><h1 id="t3Title">Solar bought at a fixed tariff</h1><p id="t3Sub"></p></div>
+    <div class="toolbar">
+      <div class="seg" id="t3Dur" aria-label="BESS duration"><button data-v="2">2-hour</button><button data-v="4">4-hour</button></div>
+      <div class="seg" id="t3Mkt" aria-label="Sale of BESS power"><button data-v="DAM">DAM</button><button data-v="GDAM">GDAM</button><button data-v="RTM">RTM</button><button data-v="FLEX">Flexible</button></div>
+    </div>
+  </div>
+  <div class="t3bar">
+    <div class="bf"><label for="t3_tariff">Solar purchase tariff</label><input id="t3_tariff" type="number" min="0" step="0.005" value="2.545"><span>₹/kWh</span></div>
+    <div class="bf" id="t3FlexBox"><label for="t3_flex">Flexible sale price</label><input id="t3_flex" type="number" min="0" step="0.05" value="7"><span>₹/kWh</span></div>
+    <div class="bf"><label for="t3_capex">BESS capex</label><input id="t3_capex" type="number" min="0" step="0.01" value="0.98"><span>₹ Cr/MWh</span></div>
+    <span class="boost-out" id="t3BarNote"></span>
+  </div>
+  <section class="heroes" id="t3Heroes" aria-live="polite"></section>
+  <section class="minis" id="t3Minis"></section>
+  <section class="card">
+    <div class="card-h"><div><span class="lbl">Output note</span><h2>What the numbers say</h2></div></div>
+    <ul class="note-list" id="t3Note"></ul>
+  </section>
+  <div class="two">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Discharge window</span><h2>When the BESS sells</h2></div><p id="t3WinNote"></p></div>
+      <div class="sl" style="margin-bottom:6px"><div class="row"><b>Discharge window start</b><span id="t3dT"></span></div>
+        <input type="range" id="t3d" min="0" max="95" step="1" aria-label="Discharge window start"></div>
+      <div class="legend" id="t3Legend"></div>
+      <div class="cw"><svg id="t3Price"></svg></div>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Scenarios · post-tax project IRR</span><h2>Sale options compared</h2></div><p>Click a cell to open that case</p></div>
+      <table class="mx" id="t3Mx"></table>
+    </section>
+  </div>
+  <div class="two even">
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Year 1 · ₹ Cr</span><h2>Revenue and cost build-up</h2></div></div>
+      <table class="pl" id="t3Pl"></table>
+    </section>
+    <section class="card">
+      <div class="card-h"><div><span class="lbl">Cash flow · ₹ Cr</span><h2>Post-tax cash flow and cumulative position</h2></div><p id="t3CfNote"></p></div>
+      <div class="cw"><svg id="t3Cf"></svg></div>
+    </section>
+  </div>
+  <section class="card notes">
+    <span class="lbl">How this tab works</span>
+    <ul>
+      <li><b>Buying solar:</b> the BESS operator buys solar from the plant at the fixed tariff, so there is no solar capex, land or solar O&amp;M. Charging is behind the meter at the plant, so there is no CTU charge or ISTS loss on charging. The tariff is charged on all energy delivered into the BESS, including conversion losses.</li>
+      <li><b>Solar supply:</b> the plant's own output (its reference MWac and CUF). Each day the BESS takes what it needs from solar outside the discharge window, up to the connectivity MW.</li>
+      <li><b>Selling:</b> on DAM, GDAM or RTM at the average price in the discharge window (IEX fee applies), or at the Flexible price you enter (bilateral; no IEX fee). CTU charges on selling are zero.</li>
+      <li><b>Shared inputs:</b> BESS sizing from night connectivity, BESS technical inputs, IEX fee, O&amp;M, tax, financing, price escalation and the equity-funded cost come from the Solar + BESS tab's Assumptions and the sidebar. The solar tariff and the Flexible price are held flat. Booster days are not applied on this tab.</li>
+    </ul>
+  </section>
 </div>
 </main>
 </div>
@@ -1134,7 +1197,7 @@ $('unlockBtn').addEventListener('click', () => {
 });
 $('resetPx').addEventListener('click', () => { MK3.forEach(m => { if (isEdited(m) || PE.target[m]) PE.target[m] = new Float64Array(96); }); animEdit(); });
 $('brushSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; PE.sigma = +b.dataset.v; setSeg('brushSeg', b.dataset.v); });
-let raf = 0; function schedule(){ if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (typeof VIEW !== 'undefined' && VIEW === 2) update2(); else update(); }); }
+let raf = 0; function schedule(){ if (raf) return; raf = requestAnimationFrame(() => { raf = 0; if (typeof VIEW !== 'undefined' && VIEW === 2) update2(); else if (typeof VIEW !== 'undefined' && VIEW === 3) update3(); else update(); }); }
 
 /* ---------- waterfall ---------- */
 function renderWaterfall(R){
@@ -1566,9 +1629,9 @@ function table2(R1, R2){
   $('t2Tbl').innerHTML = `<thead><tr><th>Year 1</th><th class="r">1 cycle</th><th class="r">2 cycles</th></tr></thead><tbody>` +
     rows.map((r,i) => `<tr class="${r[0].startsWith('EBITDA') ? 'tot' : ''}"><td>${r[0]}</td><td class="r">${r[1]}</td><td class="r">${r[2]}</td></tr>`).join('') + '</tbody>';
 }
-function setView(v){ VIEW = v; $('view1').hidden = v !== 1; $('view2').hidden = v !== 2;
+function setView(v){ VIEW = v; $('view1').hidden = v !== 1; $('view2').hidden = v !== 2; $('view3').hidden = v !== 3;
   document.querySelectorAll('.viewtabs button').forEach(b => b.setAttribute('aria-selected', +b.dataset.v === v ? 'true' : 'false'));
-  if (v === 2) update2(); else update(); }
+  if (v === 2) update2(); else if (v === 3) update3(); else update(); }
 document.querySelectorAll('.viewtabs button').forEach(b => b.addEventListener('click', () => setView(+b.dataset.v)));
 $('t2Dur').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T2.dur = +b.dataset.v; update2(); });
 $('t2Tx').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T2.tx = b.dataset.v; update2(); });
@@ -1579,7 +1642,134 @@ let raf2 = 0; const sched2 = () => { if (raf2) return; raf2 = requestAnimationFr
 document.querySelectorAll('[id^="t2_"]').forEach(i => i.addEventListener('input', sched2));
 $('t2Best').addEventListener('click', () => { T2.key = ''; update2(); });
 
-function full(){ if (VIEW === 2) update2(); else update(); }
+/* ================= Tab 3: solar bought at a fixed tariff · BESS sale on IEX or flexible ================= */
+const T3 = {dur:2, mkt:'GDAM', win:{2:76, 4:72}};
+const MKT3 = {DAM:'DAM', GDAM:'GDAM', RTM:'RTM', FLEX:'Flexible'};
+function readT3(){ return {tariff:g2('t3_tariff'), flex:g2('t3_flex'), capex:g2('t3_capex')}; }
+function run3(h, mkt, C3){
+  const A = S.a, pl = PLANTS[S.plant], z = sizing(S.plant, h), life = Math.max(1, Math.round(A.life)), av = A.avail/100;
+  const d0 = T3.win[h], db = winBlocks(d0, z.nb), inDb = new Uint8Array(96); db.forEach(b => inDb[b] = 1);
+  const us = unitSolar(S.plant), flex = mkt === 'FLEX', tariff = C3.tariff*1000;
+  let chMWh = 0, sellMWh = 0, sellRev = 0, fullDays = 0; const month = new Array(12).fill(0);
+  for (let d=0; d<N; d++){
+    const u = us[MONTH[d]]; let avail = 0; for (let b=0;b<96;b++) if (!inDb[b]) avail += Math.min(z.P, pl.refAC*u[b])*.25;
+    const ch = Math.min(z.needSolar, avail), deliv = ch*z.eta*z.kD;
+    let price; if (flex) price = C3.flex*1000; else { const ps = DATA[mkt][d]; let s = 0; for (const b of db) s += ps[b]; price = s/z.nb; }
+    if (ch >= z.needSolar - 1e-6) fullDays++;
+    chMWh += ch*av; sellMWh += deliv*av; sellRev += deliv*price*av;
+    month[MONTH[d]] += (deliv*price - ch*tariff - (flex ? 0 : deliv*A.fee))*av;
+  }
+  const capB = z.name*C3.capex*CR, capex = capB, deg = A.deg/100, aug = Math.round(A.augYear);
+  const D = Math.min(0.95, Math.max(0, A.debtPct/100)), wacc = (1-D)*A.ke/100 + D*A.kd/100*(1-A.tax/100);
+  const debt = capex*D, tenor = Math.max(1, Math.round(A.tenor)), prin = debt/tenor; let bal = debt;
+  const cf = [-capex], pre = [-capex], ecf = [-(capex-debt)], dscr = [], rows = [];
+  for (let y=1; y<=life; y++){
+    const age = aug>0 && y>aug ? y-aug-0.5 : y-0.5, bf = Math.max(0.4, 1 - deg*age)/z.soh1;
+    const pe = Math.pow(1+A.esc/100, y-1), oe = Math.pow(1+A.omEsc/100, y-1);
+    const rev = sellRev*bf*(flex ? 1 : pe), solar = chMWh*bf*tariff, fees = flex ? 0 : sellMWh*bf*A.fee;
+    const om = capB*A.omBess/100*oe, eqc = A.eqOn && y <= Math.round(A.eqYears) ? A.eqCost*CR : 0, augC = aug>0 && y===aug ? capB*A.augPct/100 : 0;
+    const ebitda = rev - solar - fees - om - eqc, tax = Math.max(0, ebitda - capex/life - augC)*A.tax/100;
+    cf.push(ebitda - augC - tax); pre.push(ebitda - augC);
+    const intr = bal*A.kd/100, rp = y <= tenor ? Math.min(bal, prin) : 0, taxE = Math.max(0, ebitda - capex/life - augC - intr)*A.tax/100;
+    ecf.push(ebitda - augC - taxE - intr - rp); if (intr + rp > 0) dscr.push((ebitda + eqc - taxE)/(intr + rp)); bal -= rp;
+    rows.push({y, rev, solar, fees, om, eqc, augC, ebitda, tax, mwh:sellMWh*bf, ch:chMWh*bf});
+  }
+  const npv = cf.reduce((s,c,i) => s + c/Math.pow(1+wacc,i), 0);
+  return {z, h, mkt, cf, ecf, rows, month, capex, capB, wacc, npv, irr:irr(cf), irrPre:irr(pre), eirr:irr(ecf), pb:payback(cf), dscrMin: dscr.length ? Math.min(...dscr) : null,
+    y1:{chMWh, sellMWh, sellRev, fullDays, price: sellMWh ? sellRev/sellMWh : 0}};
+}
+function update3(){
+  if (VIEW !== 3) return;
+  readA(); renderTabs(); const C3 = readT3(), pl = PLANTS[S.plant], h = T3.dur, A = S.a;
+  setSeg('t3Dur', String(h)); setSeg('t3Mkt', T3.mkt); $('t3FlexBox').classList.toggle('dim', T3.mkt !== 'FLEX');
+  const R = run3(h, T3.mkt, C3), z = R.z, y1 = R.rows[0], flex = T3.mkt === 'FLEX';
+  $('t3Title').textContent = `${pl.code} · ${pl.loc} · solar bought at ₹${C3.tariff}/kWh`;
+  $('t3Sub').textContent = `${inr(z.P)} MW / ${inr(z.name)} MWh BESS · buys solar from the plant at ₹${C3.tariff}/kWh · sells ${inr(z.sell)} MWh a night ${flex ? `at a flexible ₹${C3.flex}/kWh` : `on IEX ${T3.mkt}`}`;
+  const solarPerSold = C3.tariff*z.needSolar/z.sell, sale = R.y1.price/1000, margin = sale - solarPerSold;
+  $('t3BarNote').innerHTML = `Each kWh sold needs ${(z.needSolar/z.sell).toFixed(3)} kWh of solar, so solar costs <b>₹${solarPerSold.toFixed(2)}</b> per kWh sold against a ${flex ? 'flexible' : T3.mkt} sale price of <b>₹${sale.toFixed(2)}</b>.`;
+  const ok = R.irr != null && R.irr >= R.wacc, okE = R.eirr != null && R.eirr >= A.ke/100, pf = v => (v*100).toFixed(1) + '%';
+  $('t3Heroes').innerHTML = `
+    <div class="card hero primary ${R.irr==null||R.irr<0?'neg':''}"><div class="row"><span class="lbl">Project IRR · post-tax</span><span class="pill ${ok?'good':'bad'}">${ok?'Above':'Below'} WACC</span></div>
+      <span class="v">${pct(R.irr)}</span><span class="s">Pre-tax ${pct(R.irrPre)} · ${Math.round(A.life)}-year, unlevered</span></div>
+    <div class="card hero"><div class="row"><span class="lbl">Equity IRR · post-tax</span><span class="pill ${okE?'good':'bad'}">${okE?'Above':'Below'} Ke ${A.ke}%</span></div>
+      <span class="v" style="color:${R.eirr==null||R.eirr<0?'var(--bad)':'var(--ink)'}">${pct(R.eirr)}</span><span class="s">Min DSCR ${R.dscrMin==null?'—':R.dscrMin.toFixed(2)+'×'}</span></div>
+    <div class="card hero"><span class="lbl">WACC</span><span class="v">${pf(R.wacc)}</span><span class="s">${A.debtPct}:${100-A.debtPct} debt:equity</span></div>
+    <div class="card hero"><span class="lbl">NPV at WACC</span><span class="v" style="color:${R.npv<0?'var(--bad)':'var(--ink)'}">${R.npv<0?'−':''}₹${inr(Math.abs(R.npv)/CR)}<small>Cr</small></span><span class="s">Capex ${cr(R.capex)}</span></div>
+    <div class="card hero"><span class="lbl">Payback</span><span class="v">${R.pb==null?'—':R.pb.toFixed(1)}<small>${R.pb==null?'beyond life':'years'}</small></span><span class="s">Post-tax, undiscounted</span></div>`;
+  $('t3Minis').innerHTML = [
+    ['BESS capex', cr(R.capex), `${inr(z.name)} MWh × ₹${C3.capex} Cr`],
+    ['Year-1 revenue', cr(y1.rev,1), `${inr(R.y1.sellMWh/1000,1)} GWh at ₹${sale.toFixed(2)}/kWh`],
+    ['Year-1 solar purchase', cr(y1.solar,1), `${inr(R.y1.chMWh/1000,1)} GWh at ₹${C3.tariff}/kWh`],
+    ['Year-1 EBITDA', cr(y1.ebitda,1), `Margin ${(y1.ebitda/y1.rev*100).toFixed(0)}%`],
+    ['Margin per kWh sold', '₹' + margin.toFixed(2), `Sale ₹${sale.toFixed(2)} − solar ₹${solarPerSold.toFixed(2)}`],
+    ['Battery fully charged', `${R.y1.fullDays} / ${N} days`, `Plant solar ${inr(pl.refAC)} MWac outside the window`],
+  ].map(([l,v,s]) => `<div class="card mini"><span class="lbl">${l}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join('');
+  // scenario matrix
+  const cols = ['DAM','GDAM','RTM','FLEX']; let html = `<thead><tr><th></th>${cols.map(c => `<th>${MKT3[c]}</th>`).join('')}</tr></thead><tbody>`; const all = [];
+  for (const hh of [2,4]){ html += `<tr><th class="rh">${hh}-hour</th>`;
+    for (const c of cols){ const X = run3(hh, c, C3); all.push({hh, c, X}); const cls = X.irr == null || X.irr < 0 ? 'bad' : X.irr >= X.wacc ? 'good' : '';
+      html += `<td><button data-h="${hh}" data-m="${c}" aria-pressed="${hh===h && c===T3.mkt}"><span class="i ${cls}">${pct(X.irr)}</span><span class="c">Equity ${pct(X.eirr)} · ₹${(X.y1.price/1000).toFixed(2)}/kWh</span></button></td>`; }
+    html += '</tr>'; }
+  $('t3Mx').innerHTML = html + '</tbody>';
+  // note
+  const best = all.filter(o => o.X.irr != null).sort((a,b) => b.X.irr - a.X.irr)[0];
+  const beFlex = (() => { let lo = 0, hi = 30; const f = p => { const X = run3(h, 'FLEX', Object.assign({}, C3, {flex:p})); return X.irr == null ? -1 : X.irr - X.wacc; };
+    if (f(hi) < 0) return null; for (let i=0;i<30;i++){ const m = (lo+hi)/2; if (f(m) > 0) hi = m; else lo = m; } return hi; })();
+  const beTariff = (() => { let lo = 0, hi = 20; const f = t => { const X = run3(h, T3.mkt, Object.assign({}, C3, {tariff:t})); return X.irr == null ? -1 : X.irr - X.wacc; };
+    if (f(lo) < 0) return null; if (f(hi) > 0) return Infinity; for (let i=0;i<30;i++){ const m = (lo+hi)/2; if (f(m) > 0) lo = m; else hi = m; } return lo; })();
+  const gap = R.irr == null ? null : (R.irr - R.wacc)*100, li = [];
+  li.push(`<b>Verdict.</b> ${pl.code}, ${h}-hour, selling ${flex ? `at a flexible ₹${C3.flex}/kWh` : `on ${T3.mkt}`}: project IRR <b>${pct(R.irr)}</b> against WACC ${pf(R.wacc)} (${gap == null ? 'does not recover capex' : (gap >= 0 ? '+' : '−') + Math.abs(gap).toFixed(1) + ' pts'}). Equity IRR is <b>${pct(R.eirr)}</b> against Ke ${A.ke}%.`);
+  if (best) li.push(`<b>Best option.</b> ${best.hh}-hour, ${MKT3[best.c]}${best.c === 'FLEX' ? ` at ₹${C3.flex}/kWh` : ''}: ${pct(best.X.irr)} project, ${pct(best.X.eirr)} equity.`);
+  li.push(`<b>Margin.</b> Buying solar at ₹${C3.tariff}/kWh costs ₹${solarPerSold.toFixed(2)} per kWh sold after round-trip and line losses. Against a ${flex ? 'flexible' : T3.mkt + ' evening'} price of ₹${sale.toFixed(2)}, the BESS keeps ₹${margin.toFixed(2)}/kWh before O&amp;M, tax and financing.`);
+  li.push(`<b>Break-evens.</b> ${beTariff == null ? 'No tariff makes this case clear WACC.' : beTariff === Infinity ? 'The case clears WACC at any tariff up to ₹20/kWh.' : `It clears WACC at a solar tariff up to <b>₹${beTariff.toFixed(2)}/kWh</b>.`} ${beFlex == null ? '' : `A flexible sale price of <b>₹${beFlex.toFixed(2)}/kWh</b> or more clears WACC at ₹${C3.tariff}/kWh solar.`}`);
+  li.push(`<b>Caveats.</b> The plant's solar is assumed to be available to the BESS whenever needed (monthly-average solar profile); IEX prices cover ${DATA.dates[0]} to ${DATA.dates[N-1]}; the BESS is assumed not to move the clearing price.`);
+  $('t3Note').innerHTML = li.map(x => `<li>${x}</li>`).join('');
+  // year-1 table
+  const c1 = v => inr(v/CR, 1), rowsT = [['sub','Revenue'], ['', `BESS sales · ${flex ? 'flexible' : T3.mkt} · ${inr(R.y1.sellMWh/1000,1)} GWh at ₹${sale.toFixed(2)}/kWh`, y1.rev], ['sub','Costs'],
+    ['neg', `Solar purchase · ${inr(R.y1.chMWh/1000,1)} GWh at ₹${C3.tariff}/kWh`, -y1.solar], ['', 'CTU charges · behind the meter, none on sale', 0],
+    ['neg', flex ? 'IEX fees · none (bilateral sale)' : 'IEX transaction fee', -y1.fees], ['neg', 'BESS O&M', -y1.om]];
+  if (y1.eqc) rowsT.push(['neg', `Equity-funded cost · years 1–${Math.round(A.eqYears)}`, -y1.eqc]);
+  rowsT.push(['tot', 'EBITDA', y1.ebitda], ['sub','Capex'], ['', `BESS ${inr(z.name)} MWh × ₹${C3.capex} Cr`, R.capex], ['tot', 'Total capex', R.capex]);
+  $('t3Pl').innerHTML = `<thead><tr><th>Line item</th><th class="r">₹ Cr</th></tr></thead><tbody>` + rowsT.map(([t,l,v]) => t === 'sub' ? `<tr class="subh"><td colspan="2">${l}</td></tr>` : `<tr class="${t}"><td>${l}</td><td class="r">${v<0?'−'+c1(-v):c1(v)}</td></tr>`).join('') + '</tbody>';
+  // window + charts
+  $('t3d').value = T3.win[h]; $('t3dT').textContent = `${hhmm(T3.win[h])} → ${hhmm(T3.win[h] + z.nb)} · ${dur(z.nb)}`;
+  $('t3WinNote').textContent = flex ? 'Flexible sale price is flat; the window still sets when the BESS exports and how much solar is free to charge it.' : `Average ${T3.mkt} price in the window: ₹${inr(R.y1.price)}/MWh`;
+  drawPrice3(R, C3);
+  const v = R.cf.map(x => x/CR); let s = 0; const cum = v.map(x => s += x);
+  barChart($('t3Cf'), v, v.map((_,i) => String(i)), {color:'var(--bess)', line:cum, every:5, mark: R.pb != null ? Math.ceil(R.pb) : null});
+  $('t3CfNote').textContent = `Year 0 is capex of ${cr(R.capex)}`;
+}
+function drawPrice3(R, C3){
+  const svg = $('t3Price'), W = Math.max(320, svg.parentNode.clientWidth), H = 260, m = {l:50, r:56, t:30, b:28}, iw = W-m.l-m.r, ih = H-m.t-m.b;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.innerHTML = '';
+  const z = R.z, pl = PLANTS[S.plant], us = unitSolar(S.plant), sol = new Float64Array(96);
+  for (let d=0; d<N; d++) for (let b=0;b<96;b++) sol[b] += Math.min(z.P, pl.refAC*us[MONTH[d]][b])/N;
+  const lines = ['DAM','GDAM','RTM'].map(k => [k, avgOf(k)]), flexV = C3.flex*1000;
+  const ymax = Math.ceil(Math.max(...lines.flatMap(l => [...l[1]]), T3.mkt === 'FLEX' ? flexV : 0)/2000)*2000;
+  const x = b => m.l + b/96*iw, y = v => m.t + ih - v/ymax*ih, ys = v => m.t + ih - v/pl.refAC*ih*0.9;
+  for (let v=0; v<=ymax; v+=2000){ el('line', {x1:m.l, x2:m.l+iw, y1:y(v), y2:y(v), stroke:'var(--line)'}, svg); el('text', {x:m.l-8, y:y(v)+3.5, 'text-anchor':'end'}, svg).textContent = v ? '₹'+(v/1000)+'k' : '0'; }
+  for (let hh=0; hh<=24; hh+=3) el('text', {x:x(hh*4), y:H-8, 'text-anchor':'middle'}, svg).textContent = String(hh).padStart(2,'0')+':00';
+  el('text', {x:m.l+iw+6, y:ys(pl.refAC)+3.5}, svg).textContent = inr(pl.refAC)+' MW';
+  const s0 = T3.win[R.h], parts = s0+z.nb <= 96 ? [[s0, s0+z.nb]] : [[s0,96],[0,s0+z.nb-96]];
+  for (const [a,b] of parts){ el('rect', {x:x(a), y:m.t, width:x(b)-x(a), height:ih, fill:'var(--bess-soft)'}, svg); el('rect', {x:x(a), y:m.t-3, width:x(b)-x(a), height:3, fill:'var(--bess)'}, svg); }
+  let dA = `M${x(0)},${ys(0)}`; for (let b=0;b<96;b++) dA += ` L${x(b+.5)},${ys(sol[b])}`; dA += ` L${x(96)},${ys(0)} Z`;
+  el('path', {d:dA, fill:'var(--solar)', opacity:.22}, svg);
+  for (const [k, a] of lines){ let d = ''; a.forEach((v,b) => d += (b?' L':'M') + x(b+.5) + ',' + y(v)); const on = k === T3.mkt;
+    el('path', {d, fill:'none', stroke: on ? 'var(--ink)' : 'var(--faint)', 'stroke-width': on ? 2.2 : 1.2, 'stroke-dasharray': on ? '' : '3 3', 'stroke-linejoin':'round'}, svg); }
+  if (T3.mkt === 'FLEX') el('line', {x1:m.l, x2:m.l+iw, y1:y(flexV), y2:y(flexV), stroke:'var(--bess)', 'stroke-width':2, 'stroke-dasharray':'6 4'}, svg);
+  el('line', {x1:m.l, x2:m.l+iw, y1:m.t+ih, y2:m.t+ih, stroke:'var(--faint)'}, svg);
+  $('t3Legend').innerHTML = (T3.mkt === 'FLEX' ? `<span><i style="background:var(--bess)"></i>Flexible ₹${C3.flex}/kWh</span><span><i style="background:var(--faint)"></i>DAM / GDAM / RTM averages</span>`
+    : `<span><i style="background:var(--ink)"></i>${T3.mkt} average price</span><span><i style="background:var(--faint)"></i>Other markets</span>`) +
+    `<span><i class="box" style="background:var(--solar);opacity:.45"></i>Plant solar output (right axis)</span><span><i class="box" style="background:var(--bess-soft);border:1px solid var(--bess)"></i>Discharge window</span>`;
+}
+$('t3Dur').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T3.dur = +b.dataset.v; update3(); });
+$('t3Mkt').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T3.mkt = b.dataset.v; update3(); });
+$('t3Mx').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; T3.dur = +b.dataset.h; T3.mkt = b.dataset.m; update3(); });
+let raf3 = 0; const sched3 = () => { if (raf3) return; raf3 = requestAnimationFrame(() => { raf3 = 0; update3(); }); };
+$('t3d').addEventListener('input', e => { T3.win[T3.dur] = +e.target.value; sched3(); });
+document.querySelectorAll('[id^="t3_"]').forEach(i => i.addEventListener('input', sched3));
+
+function full(){ if (VIEW === 2) update2(); else if (VIEW === 3) update3(); else update(); }
 function bindSeg(id, fn){ $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; fn(b.dataset.v); full(); }); }
 bindSeg('durSeg', v => S.dur = +v); bindSeg('srcSeg', v => S.src = v); bindSeg('txSeg', v => S.tx = v);
 $('buyMkt').addEventListener('change', e => { S.mkt[S.src].buy = e.target.value; update(); });
