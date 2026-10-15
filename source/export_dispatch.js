@@ -4,6 +4,7 @@ const fs = require('fs'), path = require('path');
 const s = fs.readFileSync(path.join(__dirname, '.model.js'), 'utf8');
 const core = s.slice(0, s.indexOf('/* ---------- render: sidebar'));
 const v2 = s.slice(s.indexOf('const T2 = {'), s.indexOf('function update2(){'));
+const v3 = s.slice(s.indexOf('const T3 = {'), s.indexOf('function update3(){'));
 const test = `
 const base={solarCapex:2.05,bessCapex:0.98,landRate:35000,landMode:'lease',landEsc:5,cuf:30,auxMW:1,surplus:'sell',dod:90,rte:90,deg:1.5,bessAux:1,lineLoss:1,istsLoss:3,avail:99,augYear:12,augPct:20,stoa:586,lta:3.96,fee:15,life:25,tax:25.17,esc:0,omSolar:5,omBess:0.5,omEsc:3,solDeg:0.5,solarSize:100,debtPct:70,kd:9.5,tenor:15,ke:14,boostOn:false,boostDays:20,boostStart:1,boostPrice:15,eqOn:true,eqCost:20,eqYears:2};
 const out={dispatch:{}, results:[], catl:{}};
@@ -24,6 +25,11 @@ for (const pk of ['P7','P8','P12']) for (const h of [2,4]) for (const tx of ['st
   const w2=best2(WB,WS,z2), w1=best1(WB1,WS,z1); const R1=run2(1,w1,C,WB1,WS), R2=run2(2,w2,C,WB,WS);
   const pick=R=>({irr:R.irr,eirr:R.eirr,npv:R.npv/1e7,capex:R.capex/1e7,reps:R.reps,dscr:R.dscrMin});
   out.catl[pk+'|'+h+'|'+tx]={w1,w2,r1:pick(R1),r2:pick(R2)}; }
+// solar profile per MWac (by plant, month, block) and reference results for the solar-purchase tab
+S.a=Object.assign({},base); out.unitSolar={}; for (const pk of ['P7','P8','P12']) out.unitSolar[pk]=unitSolar(pk).map(a=>Array.from(a));
+out.t3=[]; const C3={tariff:2.545,flex:7,capex:0.98};
+for (const pk of ['P7','P8','P12']) for (const h of [2,4]) for (const mk of ['DAM','GDAM','RTM','FLEX']){ S.plant=pk; T3.win={2:76,4:72};
+  const R=run3(h,mk,C3); out.t3.push({pk,h,mkt:mk,irr:R.irr,eirr:R.eirr,npv:R.npv/1e7,capex:R.capex/1e7,dscr:R.dscrMin,price:R.y1.price,fullDays:R.y1.fullDays}); }
 require('fs').writeFileSync(require('path').join(__dirname,'export.json'), JSON.stringify(out));
 console.log('export.json written');`;
-eval(core + v2 + test);
+eval(core + v2 + v3 + test);

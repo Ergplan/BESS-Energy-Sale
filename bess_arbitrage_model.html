@@ -1807,6 +1807,7 @@ function excelState(){
     eqOn:A.eqOn ? 1 : 0, eqCost:A.eqCost, eqYears:A.eqYears, solarCapex:A.solarCapex, bessCapex:A.bessCapex, landRate:A.landRate, landMode:A.landMode === 'buy' ? 'Buy' : 'Lease', landEsc:pc(A.landEsc), cuf:pc(A.cuf), auxMW:A.auxMW,
     dod:pc(A.dod), rte:pc(A.rte), deg:pc(A.deg), bessAux:pc(A.bessAux), lineLoss:pc(A.lineLoss), istsLoss:pc(A.istsLoss), avail:pc(A.avail), augYear:A.augYear, augPct:pc(A.augPct),
     stoa:A.stoa, lta:A.lta, fee:A.fee, life:A.life, tax:pc(A.tax), esc:pc(A.esc), omSolar:A.omSolar, omBess:pc(A.omBess), omEsc:pc(A.omEsc), solDeg:pc(A.solDeg), debtPct:pc(A.debtPct), kd:pc(A.kd), tenor:A.tenor, ke:pc(A.ke),
+    pDur:T3.dur, pMkt:MKT3[T3.mkt], pTariff:readT3().tariff, pFlex:readT3().flex, pCapex:readT3().capex, pd2:T3.win[2], pd4:T3.win[4],
     cDur:T2.dur, cTx:T2.tx === 'stoa' ? 'T-GNA' : 'GNA', cBuy:T2.buy, cSell:T2.sell, cCapex:C.capex, cCycles:C.life, cEol:pc(C.eol), cCal:pc(C.cal), cDod:pc(C.dod), cRte:pc(C.rte), cAux:pc(C.aux), cAvail:pc(C.avail), cRep:pc(C.rep)};
   const catl = {};
   for (const h of [2,4]){ const z1 = size2(h,1,C), z2 = size2(h,2,C), WB = winSums(T2.buy, z2.nc), WS = winSums(T2.sell, z2.nb), WB1 = z1.nc === z2.nc ? WB : winSums(T2.buy, z1.nc);
@@ -1843,11 +1844,17 @@ async function generateExcel(){
       sp = {}; const pick = {}; DATA.dates.forEach((ds, i) => { if (ds.slice(5,7) === '09') pick[+ds.slice(8,10)] = i; });
       for (const k in map.sep){ const [m, day] = k.split('|'), i = pick[+day]; if (i == null) continue; for (let p=0;p<192;p++) sp[colL(map.sepCol0 + p) + map.sep[k]] = DATA[m][i][p % 96]; }
     }
+    const spf = {}; for (const k in map.solarProfile){ const [pk, mo] = k.split('|'), u = unitSolar(pk)[+mo - 1]; for (let b=0;b<96;b++) spf[colL(map.solarCol0 + b) + map.solarProfile[k]] = Math.round(u[b]*1e6)/1e6; }
+    let pmo = null;
+    if (anyEdited()){ pmo = {};
+      for (const k in map.pricesMonth){ const [mk, mo] = k.split('|'), idx = []; MONTH.forEach((mm, i) => { if (mm === +mo - 1) idx.push(i); });
+        for (let b=0;b<96;b++){ let s = 0; for (const i of idx) s += DATA[mk][i][b]; const v = idx.length ? Math.round(s/idx.length*100)/100 : 0; pmo[colL(map.pmCol0 + b) + map.pricesMonth[k]] = v; pmo[colL(map.pmCol0 + 96 + b) + map.pricesMonth[k]] = v; } } }
     // headline results for the Cover, so previewers show them before Excel recalculates
-    const R = run(scOf(S.dur, S.src, S.tx)), R1 = catl.R1, R2 = catl.R2, cov = {};
+    const R = run(scOf(S.dur, S.src, S.tx)), R1 = catl.R1, R2 = catl.R2, R3 = run3(T3.dur, T3.mkt, readT3()), cov = {};
     const ir = x => x == null ? '< 0%' : x;
     const metric = {irr: X => ir(X.irr), irrPre: X => ir(X.irrPre), eirr: X => ir(X.eirr), wacc: X => X.wacc, npv: X => X.npv/CR, pb: X => X.pb == null ? 'beyond life' : X.pb, dmin: X => X.dscrMin, capex: X => X.capex/CR, name: X => X.z.name};
-    for (const k in metric) [[R,'B'],[R1,'C'],[R2,'D']].forEach(([X, col]) => { if (X) cov[col + map.cover[k]] = metric[k](X); });
+    for (const k in metric) [[R,'B'],[R1,'C'],[R2,'D'],[R3,'E']].forEach(([X, col]) => { if (X) cov[col + map.cover[k]] = metric[k](X); });
+    cov['E' + map.cover.scenario] = `${S.plant} · ${T3.dur}h · sell ${MKT3[T3.mkt]}`;
     cov['B' + map.cover.scenario] = `${S.plant} · ${S.dur}h · ${caseName}`; cov['C' + map.cover.scenario] = `${S.plant} · ${T2.dur}h · ${T2.tx === 'stoa' ? 'T-GNA' : 'GNA'}`;
     for (const sh of Object.keys(map.sheets)){
       await edit(sh, xml => {
@@ -1855,12 +1862,16 @@ async function generateExcel(){
         if (sh === 'Dispatch') xml = setCells(xml, disp);
         if (sh === 'Prices' && pr) xml = setCells(xml, pr);
         if (sh === 'SepDays' && sp) xml = setCells(xml, sp);
+        if (sh === 'SolarProfile') xml = setCells(xml, spf);
+        if (sh === 'PricesMonth' && pmo) xml = setCells(xml, pmo);
         xml = stripCached(xml);            // other results are recalculated when the file is opened
         if (sh === 'Cover') xml = setCached(xml, cov);
         return xml; });
     }
     const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const day = new Date().toISOString().slice(0,10), name = `BESS_Model_${S.plant}_${S.dur}h_${caseName.replace(/[^A-Za-z0-9]+/g,'-')}_${day}.xlsx`;
+    const day = new Date().toISOString().slice(0,10), slug = s => s.replace(/[^A-Za-z0-9]+/g,'-');
+    const tag = VIEW === 3 ? `SolarPPA_${T3.dur}h_${slug(MKT3[T3.mkt])}` : VIEW === 2 ? `CATL_${T2.dur}h_${T2.tx === 'stoa' ? 'T-GNA' : 'GNA'}` : `${S.dur}h_${slug(caseName)}`;
+    const name = `BESS_Model_${S.plant}_${tag}_${day}.xlsx`;
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
     msg.textContent = `Downloaded ${name}. Open it in Excel, Numbers or Google Sheets to see every figure; the Cover shows the headline results right away.`;

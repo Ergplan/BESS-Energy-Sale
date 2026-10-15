@@ -139,6 +139,15 @@ for hh, w in [(2, w2c), (4, w4)]:
         inp(f'k2c{i+1}{hh}', f'2 cycles/day, {hh}-hour: charge {i+1} start', w['w2'][i]['c'], 'block')
         inp(f'k2d{i+1}{hh}', f'2 cycles/day, {hh}-hour: discharge {i+1} start', w['w2'][i]['d'], 'block')
 
+sec('Solar bought at a fixed tariff (Solar PPA sheet)')
+inp('pDur', 'BESS duration', 2, 'hours', key=True, options=['2','4'])
+inp('pMkt', 'Sale of BESS power', 'GDAM', 'text', note='DAM / GDAM / RTM at the average price in the discharge window (IEX fee applies), or Flexible at the price below (bilateral, no IEX fee).', key=True, options=['DAM','GDAM','RTM','Flexible'])
+inp('pTariff', 'Solar purchase tariff', 2.545, '₹ / kWh', '0.000', key=True, note='User input: the BESS operator buys solar from the plant at this flat price. No solar capex; behind-the-meter charging, so no CTU charge or ISTS loss.')
+inp('pFlex', 'Flexible sale price', 7, '₹ / kWh', NUM2, note='Used when Sale = Flexible. Flat for the project life. Placeholder: replace with the contracted price.')
+inp('pCapex', 'BESS capex', 0.98, '₹ Cr / MWh', NUM2, key=True)
+inp('pd2', 'Discharge window start, 2-hour', 76, 'block 0–95', note='76 = 19:00')
+inp('pd4', 'Discharge window start, 4-hour', 72, 'block 0–95', note='72 = 18:00')
+
 sec('Plant table')
 A.cell(row=r, column=1, value='Plant · location').font = fBold
 for j, t in enumerate(['Night connectivity MW', 'Ref. solar MWac', 'Ref. solar MWp DC · acres'], start=2): A.cell(row=r, column=j, value=t).font = fBold
@@ -195,6 +204,49 @@ for m in ['DAM','GDAM','RTM']:
         rr += 1
 SDR = f"SepDays!$C$4:$GL${rr-1}"; SDI = "SepDays!$C$3:$GL$3"; SDM = f"SepDays!$A$4:$A${rr-1}"; SDD = f"SepDays!$B$4:$B${rr-1}"
 SEPN = rr - 4
+
+# ------------------------------------------------------------------ SolarProfile (per MWac) and days per month
+SPF = sheet('SolarProfile')
+SPF['A1'] = 'Solar output per MWac by plant, month and 15-minute block'; SPF['A1'].font = fH1
+SPF['A2'] = ('From the HTML model: clipped daylight curve for each plant\'s latitude, scaled to the stated CUF (30%) with a monthly irradiance shape. '
+             'Multiply by the plant MWac. Re-export (or use the app\'s Generate button) if CUF changes.'); SPF['A2'].font = fNote
+SPF.cell(row=3, column=1, value='Plant|month').font = fBold; SPF.cell(row=3, column=2, value='Block →').font = fBold
+for b in range(96): SPF.cell(row=3, column=3+b, value=b).font = fBold
+SPMAP = {}; rr = 4
+for pk in ['P7','P8','P12']:
+    for mo in range(12):
+        SPMAP[f'{pk}|{mo+1}'] = rr
+        SPF.cell(row=rr, column=1, value=f'{pk}|{mo+1}').font = fB; SPF.cell(row=rr, column=2, value=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mo]).font = fB
+        for b in range(96): c = SPF.cell(row=rr, column=3+b, value=round(EX['unitSolar'][pk][mo][b], 6)); c.font = fIn; c.number_format = '0.000'
+        rr += 1
+SPK = f"SolarProfile!$A$4:$A${rr-1}"; SPV = f"SolarProfile!$C$4:${L(98)}${rr-1}"
+rr += 1; SPF.cell(row=rr, column=1, value='Days in the price data by month').font = fBold; rr += 1
+DAYROW = {}
+from collections import Counter
+cnt = Counter(int(ds[5:7]) for ds in dates)
+for mo in range(1, 13):
+    SPF.cell(row=rr, column=1, value=mo).font = fB; c = SPF.cell(row=rr, column=2, value=cnt[mo]); c.font = fIn
+    SPF.cell(row=rr, column=3, value=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mo-1]).font = fNote
+    DAYROW[mo] = rr; rr += 1
+SPF.column_dimensions['A'].width = 12
+
+# ------------------------------------------------------------------ PricesMonth (monthly average by block, duplicated for wrap)
+PM = sheet('PricesMonth')
+PM['A1'] = 'IEX MCP monthly average by 15-minute block, ₹/MWh'; PM['A1'].font = fH1
+PM['A2'] = 'One row per market and calendar month of the price data. Columns repeat blocks 0–95 twice so windows can run past midnight.'; PM['A2'].font = fNote
+PM.cell(row=3, column=1, value='Market|month').font = fBold; PM.cell(row=3, column=2, value='Block →').font = fBold
+for p_ in range(192): PM.cell(row=3, column=3+p_, value=p_).font = fBold
+PMMAP = {}; rr = 4
+for mk in ['DAM','GDAM','RTM']:
+    for mo in range(1, 13):
+        idx = [i for i, ds in enumerate(dates) if int(ds[5:7]) == mo]
+        avg = [sum(P[mk][i][b] for i in idx)/len(idx) for b in range(96)] if idx else [0]*96
+        PMMAP[f'{mk}|{mo}'] = rr
+        PM.cell(row=rr, column=1, value=f'{mk}|{mo}').font = fB; PM.cell(row=rr, column=2, value=len(idx)).font = fNote
+        for p_ in range(192): c = PM.cell(row=rr, column=3+p_, value=round(avg[p_ % 96], 2)); c.font = fB; c.number_format = NUM
+        rr += 1
+PMK = f"PricesMonth!$A$4:$A${rr-1}"; PMI = f"PricesMonth!$C$3:${L(194)}$3"; PMV = f"PricesMonth!$C$4:${L(194)}${rr-1}"
+PM.column_dimensions['A'].width = 12
 
 # ------------------------------------------------------------------ Dispatch (own-solar, from the HTML 15-min simulation)
 DS = sheet('Dispatch')
@@ -457,6 +509,108 @@ def catl(title, cpd):
     return m
 C1 = catl('CATL 1 cycle', 1); C2 = catl('CATL 2 cycles', 2)
 
+# ================= Solar PPA sheet: solar bought at a fixed tariff, BESS sale on IEX or flexible
+def ppa():
+    ws = sheet('Solar PPA'); m = M(ws, 'Solar bought at a fixed tariff · BESS sale on IEX or flexible (₹ Crore unless stated)')
+    ws['A2'] = 'Inputs: Assumptions → "Solar bought at a fixed tariff", plus plant, BESS technical, fee, O&M, tax, financing and equity-cost inputs. No solar capex.'; ws['A2'].font = fNote
+    m.sec('Scenario & sizing')
+    m.s('conn', 'Night connectivity', ptv('B'), 'MW', NUM, link=True)
+    m.s('refAC', 'Plant solar AC (supplies the BESS)', ptv('C'), 'MWac', NUM, link=True)
+    m.s('h', 'Duration', a('pDur'), 'hours', '0', link=True)
+    m.s('mkt', 'Sale of BESS power', a('pMkt'), 'market', '@', link=True)
+    m.s('isFlex', 'Flexible sale (1 = yes)', f'IF({m.R("mkt",0)}="Flexible",1,0)', 'flag', '0')
+    m.s('tariff', 'Solar purchase tariff', f'{a("pTariff")}*1000', '₹ / MWh', NUM)
+    m.s('eta', 'One-way efficiency = √RTE', f'SQRT({a("rte")})', '%', PCT)
+    m.s('soh1', 'Year-1 average capacity', f'1-{a("deg")}/2', '%', PCT2)
+    m.s('kD', 'Discharge chain = η × (1 − HVAC) × (1 − line)', f'{m.R("eta",0)}*(1-{a("bessAux")})*(1-{a("lineLoss")})', '%', PCT)
+    m.s('sell', 'Energy sold per cycle', f'{m.R("conn",0)}*{m.R("h",0)}', 'MWh', NUM, bold=True)
+    m.s('stored', 'Stored energy needed', f'{m.R("sell",0)}/{m.R("kD",0)}', 'MWh', NUM2)
+    m.s('name', 'BESS nameplate', f'{m.R("stored",0)}/{a("dod")}/{m.R("soh1",0)}', 'MWh', NUM, bold=True)
+    m.s('need', 'Solar bought per cycle (into the PCS)', f'{m.R("stored",0)}/{m.R("eta",0)}', 'MWh', NUM2)
+    m.s('nb', 'Discharge window length', f'{m.R("h",0)}*4', 'blocks', '0')
+    m.s('dS', 'Discharge window start', f'IF({m.R("h",0)}=2,{a("pd2")},{a("pd4")})', 'block', '0', link=True)
+    m.s('solPerSold', 'Solar cost per kWh sold', f'{a("pTariff")}*{m.R("need",0)}/{m.R("sell",0)}', '₹ / kWh', '0.00')
+    # solar by block, clipped at connectivity
+    m.sec('Plant solar by month and 15-minute block (MW, clipped at connectivity)')
+    ws = m.ws; br = m.r
+    ws.cell(row=br, column=1, value='Block').font = fBold
+    for b in range(96): c = ws.cell(row=br, column=4+b, value=b); c.font = fBold; ws.column_dimensions[L(4+b)].width = max(ws.column_dimensions[L(4+b)].width or 0, 7)
+    wr = br + 1; ws.cell(row=wr, column=1, value='In discharge window (1/0)').font = fB
+    for b in range(96): ws.cell(row=wr, column=4+b, value=f'=IF(MOD({L(4+b)}${br}-{m.R("dS",0)},96)<{m.R("nb",0)},1,0)').font = fB
+    hr0 = wr + 1
+    for mo in range(1, 13):
+        r_ = hr0 + mo - 1; ws.cell(row=r_, column=1, value=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mo-1]).font = fB
+        for b in range(96):
+            c = ws.cell(row=r_, column=4+b, value=f'=MIN({m.R("conn",0)},{m.R("refAC",0)}*INDEX({SPV},MATCH({a("plant")}&"|{mo}",{SPK},0),{L(4+b)}${br}+1))'); c.font = fB; c.number_format = '0.0'
+    m.r = hr0 + 12
+    # month table
+    m.sec('Charging and sale by month (year 1, before availability)')
+    tr = m.r; hdrs = ['Month', 'Days in data', 'Solar outside window, MWh/day', 'Charged, MWh/day', 'Sale price, ₹/MWh', 'Delivered, MWh/day', 'Full-charge days']
+    for j, h_ in enumerate(hdrs, start=1): c = ws.cell(row=tr, column=j, value=h_); c.font = fBold; c.fill = fillSub
+    rows_ = []
+    for mo in range(1, 13):
+        r_ = tr + mo; hrow = hr0 + mo - 1; rows_.append(r_)
+        ws.cell(row=r_, column=1, value=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mo-1]).font = fB
+        ws.cell(row=r_, column=2, value=f'=SolarProfile!$B${DAYROW[mo]}').font = fLink
+        ws.cell(row=r_, column=3, value=f'=SUMPRODUCT($D${hrow}:${L(99)}${hrow},1-$D${wr}:${L(99)}${wr})*0.25').number_format = NUM
+        ws.cell(row=r_, column=4, value=f'=MIN({m.R("need",0)},C{r_})').number_format = NUM
+        ws.cell(row=r_, column=5, value=f'=IF({m.R("isFlex",0)}=1,{a("pFlex")}*1000,SUMPRODUCT(({PMK}={m.R("mkt",0)}&"|{mo}")*({PMI}>={m.R("dS",0)})*({PMI}<{m.R("dS",0)}+{m.R("nb",0)})*{PMV})/{m.R("nb",0)})').number_format = NUM
+        ws.cell(row=r_, column=6, value=f'=D{r_}*{m.R("eta",0)}*{m.R("kD",0)}').number_format = NUM
+        ws.cell(row=r_, column=7, value=f'=IF(D{r_}>={m.R("need",0)}-0.000001,B{r_},0)').number_format = '0'
+        for j in range(3, 8): ws.cell(row=r_, column=j).font = fB
+    a_, z_ = rows_[0], rows_[-1]; m.r = z_ + 2
+    m.s('ch1', 'Year-1 solar bought', f'SUMPRODUCT($B${a_}:$B${z_},$D${a_}:$D${z_})*{a("avail")}', 'MWh', NUM)
+    m.s('sold1', 'Year-1 energy sold', f'SUMPRODUCT($B${a_}:$B${z_},$F${a_}:$F${z_})*{a("avail")}', 'MWh', NUM)
+    m.s('rev1', 'Year-1 sales revenue', f'SUMPRODUCT($B${a_}:$B${z_},$F${a_}:$F${z_},$E${a_}:$E${z_})*{a("avail")}/10000000', '₹ Cr', CR)
+    m.s('price1', 'Average sale price', f'IFERROR({m.R("rev1",0)}*10000000/{m.R("sold1",0)},0)', '₹ / MWh', NUM)
+    m.s('full', 'Days the BESS fills completely', f'SUM($G${a_}:$G${z_})', 'days', '0')
+    m.sec('Capex & financing')
+    m.s('capB', 'BESS capex', f'{m.R("name",0)}*{a("pCapex")}', '₹ Cr', CR)
+    m.s('capex', 'Total capex (no solar capex)', m.R('capB',0), '₹ Cr', CR, bold=True)
+    m.s('D', 'Debt share', f'MIN(0.95,MAX(0,{a("debtPct")}))', '%', PCT)
+    m.s('wacc', 'WACC', f'(1-{m.R("D",0)})*{a("ke")}+{m.R("D",0)}*{a("kd")}*(1-{a("tax")})', '%', PCT2, bold=True)
+    m.s('debt', 'Debt', f'{m.R("capex",0)}*{m.R("D",0)}', '₹ Cr', CR)
+    m.s('equity', 'Equity', f'{m.R("capex",0)}-{m.R("debt",0)}', '₹ Cr', CR)
+    m.s('prin', 'Annual principal repayment', f'{m.R("debt",0)}/MAX(1,{a("tenor")})', '₹ Cr', CR)
+    RS = m.r; m.r += 11
+    m.sec('Annual projection'); m.years_header()
+    Y = lambda c: f"{c}${m.row('y')}"
+    m.t('flag', 'In project life (1/0)', lambda y,c,p: f"IF({Y(c)}<={a('life')},1,0)", 'flag', '0')
+    m.t('age', 'Years since augmentation (mid-year)', lambda y,c,p: f"IF(AND({a('augYear')}>0,{Y(c)}>{a('augYear')}),{Y(c)}-{a('augYear')}-0.5,{Y(c)}-0.5)", 'years', '0.0')
+    m.t('soh', 'BESS capacity, % of nameplate', lambda y,c,p: f"MAX(0.4,1-{a('deg')}*{m.R('age',c)})", '%', PCT)
+    m.t('bf', 'Energy factor vs year 1', lambda y,c,p: f"{m.R('soh',c)}/{m.ref['soh1']}", 'x', '0.000')
+    m.t('pe', 'IEX price escalation index (not applied to Flexible)', lambda y,c,p: f"IF({m.ref['isFlex']}=1,1,(1+{a('esc')})^({Y(c)}-1))", 'x', '0.000')
+    m.t('oe', 'O&M escalation index', lambda y,c,p: f"(1+{a('omEsc')})^({Y(c)}-1)", 'x', '0.000')
+    m.t('sold', 'Energy sold', lambda y,c,p: f"{m.R('flag',c)}*{m.ref['sold1']}*{m.R('bf',c)}", 'MWh', NUM)
+    m.t('ch', 'Solar bought', lambda y,c,p: f"{m.R('flag',c)}*{m.ref['ch1']}*{m.R('bf',c)}", 'MWh', NUM)
+    m.t('rev', 'Revenue from BESS sales', lambda y,c,p: f"{m.R('flag',c)}*{m.ref['rev1']}*{m.R('bf',c)}*{m.R('pe',c)}", bold=True, total=True)
+    m.t('solar', 'Solar purchase at the fixed tariff', lambda y,c,p: f"{m.R('ch',c)}*{m.ref['tariff']}/10000000")
+    m.t('fees', 'IEX transaction fee (none for Flexible)', lambda y,c,p: f"(1-{m.ref['isFlex']})*{m.R('sold',c)}*{a('fee')}/10000000")
+    m.t('om', 'BESS O&M', lambda y,c,p: f"{m.R('flag',c)}*{m.ref['capB']}*{a('omBess')}*{m.R('oe',c)}")
+    m.t('eqc', 'Equity-funded cost', lambda y,c,p: f"{m.R('flag',c)}*IF(AND({a('eqOn')}=1,{Y(c)}<={a('eqYears')}),{a('eqCost')},0)")
+    m.t('ebitda', 'EBITDA', lambda y,c,p: f"{m.R('rev',c)}-{m.R('solar',c)}-{m.R('fees',c)}-{m.R('om',c)}-{m.R('eqc',c)}", bold=True, total=True)
+    m.t('aug', 'Augmentation capex', lambda y,c,p: f"{m.R('flag',c)}*IF(AND({a('augYear')}>0,{Y(c)}={a('augYear')}),{m.ref['capB']}*{a('augPct')},0)")
+    m.t('dep', 'Depreciation (straight line)', lambda y,c,p: f"{m.R('flag',c)}*{m.ref['capex']}/{a('life')}")
+    m.t('taxP', 'Tax, project basis', lambda y,c,p: f"MAX(0,{m.R('ebitda',c)}-{m.R('dep',c)}-{m.R('aug',c)})*{a('tax')}")
+    m.t('cfPre', 'Project cash flow, pre-tax', lambda y,c,p: f"{m.R('ebitda',c)}-{m.R('aug',c)}", y0=f"-{m.ref['capex']}")
+    m.t('cf', 'Project cash flow, post-tax', lambda y,c,p: f"{m.R('ebitda',c)}-{m.R('aug',c)}-{m.R('taxP',c)}", y0=f"-{m.ref['capex']}", bold=True, total=True)
+    m.ref['close'] = m.r + 3
+    m.t('open', 'Debt opening balance', lambda y,c,p: (m.ref['debt'] if y == 1 else f"{m.R('close',p)}"))
+    m.t('intr', 'Interest', lambda y,c,p: f"{m.R('open',c)}*{a('kd')}")
+    m.t('rep', 'Principal repayment', lambda y,c,p: f"IF({Y(c)}<={a('tenor')},MIN({m.R('open',c)},{m.ref['prin']}),0)")
+    m.t('close', 'Debt closing balance', lambda y,c,p: f"{m.R('open',c)}-{m.R('rep',c)}")
+    m.t('taxE', 'Tax, after interest', lambda y,c,p: f"MAX(0,{m.R('ebitda',c)}-{m.R('dep',c)}-{m.R('aug',c)}-{m.R('intr',c)})*{a('tax')}")
+    m.t('ecf', 'Equity cash flow', lambda y,c,p: f"{m.R('ebitda',c)}-{m.R('aug',c)}-{m.R('taxE',c)}-{m.R('intr',c)}-{m.R('rep',c)}", y0=f"-{m.ref['equity']}", bold=True, total=True)
+    m.t('dscr', 'DSCR (excl. augmentation and equity-funded cost)', lambda y,c,p: f"IF({m.R('intr',c)}+{m.R('rep',c)}>0,({m.R('ebitda',c)}+{m.R('eqc',c)}-{m.R('taxE',c)})/({m.R('intr',c)}+{m.R('rep',c)}),\"\")", 'x', X)
+    m.t('cum', 'Cumulative post-tax cash flow', lambda y,c,p: f"{m.R('cum',p)}+{m.R('cf',c)}", y0=f"{m.R('cf','D')}")
+    m.t('pbk', 'Payback helper', lambda y,c,p: f"IF(AND({m.R('cum',p)}<0,{m.R('cum',c)}>=0),{Y(c)}-1+(-{m.R('cum',p)})/{m.R('cf',c)},0)", 'years', '0.00')
+    results(m, RS, [('margin', 'Margin per kWh sold, year 1 (sale − solar)', f"IFERROR(({m.ref['rev1']}-{m.ref['ch1']}*{m.ref['tariff']}/10000000)*10000000/({m.ref['sold1']}*1000),0)", '"₹"0.00'),
+                    ('salep', 'Average sale price, year 1', f"{m.ref['price1']}/1000", '"₹"0.00" /kWh"'),
+                    ('solk', 'Solar cost per kWh sold', m.ref['solPerSold'], '"₹"0.00" /kWh"')])
+    m.ws.freeze_panes = 'D5'
+    return m
+P3 = ppa()
+
 # ------------------------------------------------------------------ Scenarios (reference values from the HTML model)
 SC = sheet('Scenarios')
 SC['A1'] = 'Reference results from the HTML model (default inputs)'; SC['A1'].font = fH1
@@ -480,14 +634,25 @@ for k, v in EX['catl'].items():
         if j in (4,5,6,7): c.number_format = PCT
     rr += 1
 
+rr += 1; SC.cell(row=rr, column=1, value='Solar PPA · solar at ₹2.545/kWh, BESS ₹0.98 Cr/MWh, flexible ₹7.00/kWh, equity cost on').font = fBold; rr += 1
+for j, h_ in enumerate(['Plant','Hours','Sale','Project IRR','Equity IRR','NPV ₹ Cr','Sale price ₹/MWh','Full-charge days'], start=1):
+    c = SC.cell(row=rr, column=j, value=h_); c.font = fH2; c.fill = fillHead
+rr += 1
+for x in EX['t3']:
+    vals = [x['pk'], x['h'], 'Flexible' if x['mkt'] == 'FLEX' else x['mkt'], x['irr'] if x['irr'] is not None else '< 0%', x['eirr'] if x['eirr'] is not None else '< 0%', x['npv'], x['price'], x['fullDays']]
+    fm = ['@','0','@',PCT,PCT,CR,NUM,'0']
+    for j, val in enumerate(vals, start=1): c = SC.cell(row=rr, column=j, value=val); c.font = fB; c.number_format = fm[j-1]
+    rr += 1
+
 # ------------------------------------------------------------------ Cover
-cov.column_dimensions['A'].width = 42; cov.column_dimensions['B'].width = 18; cov.column_dimensions['C'].width = 18; cov.column_dimensions['D'].width = 18; cov.column_dimensions['E'].width = 60
+cov.column_dimensions['A'].width = 42; cov.column_dimensions['B'].width = 18; cov.column_dimensions['C'].width = 18; cov.column_dimensions['D'].width = 18; cov.column_dimensions['E'].width = 22
 cov['A1'] = 'BESS IEX Arbitrage · Financial Model'; cov['A1'].font = Font(name=F, size=16, bold=True)
 cov['A2'] = f'P7 Tumkur · P8 Bidar · P12 Kunnoor 4 · BESS sized from CTU night connectivity · IEX prices {dates[0]} to {dates[-1]}'; cov['A2'].font = fNote
 rows = [('Sheet', 'What it holds'), ('Assumptions', 'Every input with units and sources. Scenario selectors at the top.'),
         ('Model', 'Solar + BESS model for the selected plant, duration and charging case: sizing, prices, capex, 25-year P&L, cash flow, debt, IRR, NPV, DSCR, levelised cost.'),
         ('CATL 1 cycle / CATL 2 cycles', 'CATL 12,000-cycle BESS on IEX only, one or two cycles a day, with cycle-based fade and cell replacement.'),
-        ('Prices / SepDays', 'IEX 15-minute average price profiles and September daily prices (for booster days).'),
+        ('Solar PPA', 'BESS buys solar from the plant at a fixed tariff (₹2.545/kWh) and sells on DAM / GDAM / RTM or at a flexible price.'),
+        ('Prices / SepDays / PricesMonth / SolarProfile', 'IEX 15-minute average prices (annual, September daily, monthly) and plant solar profiles.'),
         ('Dispatch', 'Own-solar daily charging results from the HTML model’s 15-minute simulation.'),
         ('Scenarios', 'Reference results from the HTML model for checking.')]
 for i, (x, y) in enumerate(rows):
@@ -502,16 +667,17 @@ for i, (x, y, fo, fi) in enumerate(leg):
     cov.cell(row=13+i, column=2, value=y).font = fB
 cov['A18'] = 'Live results'; cov['A18'].font = fH2
 for cc in range(1, 6): cov.cell(row=18, column=cc).fill = fillHead
-cov['B18'] = 'Solar + BESS'; cov['C18'] = 'CATL 1 cycle'; cov['D18'] = 'CATL 2 cycles'
-for x in ('B18','C18','D18'): cov[x].font = fH2
+cov['B18'] = 'Solar + BESS'; cov['C18'] = 'CATL 1 cycle'; cov['D18'] = 'CATL 2 cycles'; cov['E18'] = 'Solar PPA'
+for x in ('B18','C18','D18','E18'): cov[x].font = fH2
 res = [('Scenario', f"=Assumptions!$B${REF['plant'].split('$')[-1]}&\" · \"&Assumptions!$B${REF['dur'].split('$')[-1]}&\"h · \"&Assumptions!$B${REF['case'].split('$')[-1]}",
-        f"=Assumptions!$B${REF['plant'].split('$')[-1]}&\" · \"&Assumptions!$B${REF['cDur'].split('$')[-1]}&\"h · \"&Assumptions!$B${REF['cTx'].split('$')[-1]}", None, '@'),
-       ('Project IRR, post-tax', 'irr', 'irr', 'irr', PCT), ('Project IRR, pre-tax', 'irrPre', 'irrPre', 'irrPre', PCT), ('Equity IRR, post-tax', 'eirr', 'eirr', 'eirr', PCT),
-       ('WACC', 'wacc', 'wacc', 'wacc', PCT2), ('NPV at WACC, ₹ Cr', 'npv', 'npv', 'npv', CR), ('Payback, years', 'pb', 'pb', 'pb', '0.0'), ('Minimum DSCR', 'dmin', 'dmin', 'dmin', X),
-       ('Total capex, ₹ Cr', 'capex', 'capex', 'capex', CR), ('BESS nameplate, MWh', 'name', 'name', 'name', NUM)]
-for i, (lab, x1, x2, x3, fm) in enumerate(res):
+        f"=Assumptions!$B${REF['plant'].split('$')[-1]}&\" · \"&Assumptions!$B${REF['cDur'].split('$')[-1]}&\"h · \"&Assumptions!$B${REF['cTx'].split('$')[-1]}", None,
+        f"=Assumptions!$B${REF['plant'].split('$')[-1]}&\" · \"&Assumptions!$B${REF['pDur'].split('$')[-1]}&\"h · sell \"&Assumptions!$B${REF['pMkt'].split('$')[-1]}", '@'),
+       ('Project IRR, post-tax', 'irr', 'irr', 'irr', 'irr', PCT), ('Project IRR, pre-tax', 'irrPre', 'irrPre', 'irrPre', 'irrPre', PCT), ('Equity IRR, post-tax', 'eirr', 'eirr', 'eirr', 'eirr', PCT),
+       ('WACC', 'wacc', 'wacc', 'wacc', 'wacc', PCT2), ('NPV at WACC, ₹ Cr', 'npv', 'npv', 'npv', 'npv', CR), ('Payback, years', 'pb', 'pb', 'pb', 'pb', '0.0'), ('Minimum DSCR', 'dmin', 'dmin', 'dmin', 'dmin', X),
+       ('Total capex, ₹ Cr', 'capex', 'capex', 'capex', 'capex', CR), ('BESS nameplate, MWh', 'name', 'name', 'name', 'name', NUM)]
+for i, (lab, x1, x2, x3, x4, fm) in enumerate(res):
     rrow = 19+i; cov.cell(row=rrow, column=1, value=lab).font = fBold
-    for j, (mm, key, sh) in enumerate([(MAIN, x1, 'Model'), (C1, x2, "'CATL 1 cycle'"), (C2, x3, "'CATL 2 cycles'")], start=2):
+    for j, (mm, key, sh) in enumerate([(MAIN, x1, 'Model'), (C1, x2, "'CATL 1 cycle'"), (C2, x3, "'CATL 2 cycles'"), (P3, x4, "'Solar PPA'")], start=2):
         if key is None: continue
         v = key if isinstance(key, str) and key.startswith('=') else f"={sh}!{mm.ref[key]}"
         c = cov.cell(row=rrow, column=j, value=v); c.font = fLink; c.number_format = fm
@@ -531,6 +697,7 @@ xmap = {
   'dispatch': DMAP, 'dispatchCol0': 3,
   'prices': {'DAM': 5, 'GDAM': 6, 'RTM': 7}, 'pricesCol0': 2,
   'sep': SMAP, 'sepCol0': 3,
+  'solarProfile': SPMAP, 'solarCol0': 3, 'pricesMonth': PMMAP, 'pmCol0': 3,
   'cover': {'scenario': cov_rows['Scenario'], 'irr': cov_rows['Project IRR, post-tax'], 'irrPre': cov_rows['Project IRR, pre-tax'],
             'eirr': cov_rows['Equity IRR, post-tax'], 'wacc': cov_rows['WACC'], 'npv': cov_rows['NPV at WACC, ₹ Cr'], 'pb': cov_rows['Payback, years'],
             'dmin': cov_rows['Minimum DSCR'], 'capex': cov_rows['Total capex, ₹ Cr'], 'name': cov_rows['BESS nameplate, MWh']},

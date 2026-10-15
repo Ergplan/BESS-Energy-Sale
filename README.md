@@ -12,7 +12,7 @@ connectivity, charged from own solar or from IEX, and sold on IEX (DAM / GDAM / 
 | `solar_bess_iex_arbitrage.html` | Solar + BESS case only |
 | `two_cycle_catl_iex.html` | 2 cycles/day CATL IEX-only case only |
 | `bess_arbitrage_model.html` | Same as the full model, in the format used for the published claude.ai page |
-| `BESS_IEX_Financial_Model.xlsx` | Excel model: Assumptions sheet + live 25-year model sheets (also the template for the app's Generate button) |
+| `BESS_IEX_Financial_Model.xlsx` | Excel model: Assumptions + live 25-year model sheets — Model (Solar + BESS), CATL 1 cycle, CATL 2 cycles, Solar PPA (solar bought at a fixed tariff) — plus price and solar-profile data sheets. Also the template for the app's Generate button. |
 | `xlsx_map.json` | Which Excel cell holds each input; used by the Generate button |
 
 Inputs: `DAM_/GDAM_/RTM_15min_2025-09-01_to_2026-09-23.xlsx` (IEX MCP, 15-minute).
@@ -22,7 +22,7 @@ Inputs: `DAM_/GDAM_/RTM_15min_2025-09-01_to_2026-09-23.xlsx` (IEX MCP, 15-minute
 On the hosted site the sidebar has **Financial model (Excel)**: *Generate from current inputs* downloads the
 workbook filled with everything set in the app — plant and connectivity, duration, charging case, markets,
 windows, capex, technical and finance inputs, booster and equity-cost switches, CATL inputs and windows, and
-any prices dragged on the chart. Own-solar dispatch is recomputed in the browser for the current inputs.
+the Solar PPA tab's tariff, sale option, flexible price, capex and windows, and any prices dragged on the chart. The file is named after the tab it was generated from. Own-solar dispatch is recomputed in the browser for the current inputs.
 The Cover shows headline results immediately; Excel, Numbers and Google Sheets recalculate the rest on open.
 *Download the default model* gets the file as built. (Hidden when a page is opened as a local file.)
 
